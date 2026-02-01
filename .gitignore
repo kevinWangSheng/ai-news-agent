@@ -1,0 +1,47 @@
+# 敏感信息 - 永远不要提交！
+.env
+*.key
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 日志和缓存
+logs/
+*.log
+.cache/
+*.db
+
+# 测试
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 操作系统
+.DS_Store
+Thumbs.db
+
+# 临时文件
+temp/
+tmp/
+*.tmp
+
+# 输出文件
+output/
+
+# 测试脚本
+test_*.py

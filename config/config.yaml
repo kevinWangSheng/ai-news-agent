@@ -1,0 +1,231 @@
+# 新闻聚合系统配置
+
+# 地区配置
+regions:
+  asia:
+    - name: "中国"
+      code: "CN"
+      language: "zh-CN"
+      keywords: ["科技", "AI", "经济", "政策"]
+      max_items: 5
+
+    - name: "日本"
+      code: "JP"
+      language: "ja"
+      keywords: ["テクノロジー", "AI", "経済"]
+      max_items: 5
+
+    - name: "新加坡"
+      code: "SG"
+      language: "en"
+      keywords: ["technology", "AI", "business"]
+      max_items: 5
+
+    - name: "台湾"
+      code: "TW"
+      language: "zh-TW"
+      keywords: ["科技", "AI", "產業"]
+      max_items: 5
+
+  europe:
+    - name: "欧洲"
+      code: "EU"
+      language: "en"
+      keywords: ["technology", "AI", "innovation", "policy"]
+      max_items: 8
+
+  americas:
+    - name: "美国"
+      code: "US"
+      language: "en"
+      keywords: ["technology", "AI", "startups", "innovation"]
+      max_items: 10
+
+  others:
+    - name: "澳大利亚"
+      code: "AU"
+      language: "en"
+      keywords: ["technology", "AI", "innovation"]
+      max_items: 5
+
+    - name: "俄罗斯"
+      code: "RU"
+      language: "ru"
+      keywords: ["технологии", "AI", "инновации"]
+      max_items: 5
+
+# AI科技资讯源（扩展版）
+tech_sources:
+  # 时间范围设置
+  time_window_days: 30  # 搜索最近30天的内容
+
+  # 官方博客（优先级最高）
+  official_blogs:
+    - name: "OpenAI Blog"
+      url: "https://openai.com/blog/rss.xml"
+      type: "rss"
+      priority: "critical"
+
+    - name: "Anthropic News"
+      url: "https://www.anthropic.com/news"
+      type: "web"
+      priority: "critical"
+      max_items: 20  # 抓取最近20篇
+
+    - name: "Claude Blog"
+      url: "https://claude.com/blog"
+      type: "web"
+      priority: "critical"
+      max_items: 20  # 抓取最近20篇
+
+    - name: "Google AI Blog"
+      url: "https://ai.googleblog.com/feeds/posts/default"
+      type: "rss"
+      priority: "critical"
+
+    - name: "DeepMind Blog"
+      url: "https://deepmind.google/blog/rss.xml"
+      type: "rss"
+      priority: "critical"
+
+    - name: "Meta AI Blog"
+      url: "https://ai.meta.com/blog/feed/"
+      type: "rss"
+      priority: "high"
+
+    - name: "Microsoft Research Blog"
+      url: "https://www.microsoft.com/en-us/research/feed/"
+      type: "rss"
+      priority: "high"
+
+    - name: "HuggingFace Blog"
+      url: "https://huggingface.co/blog/feed.xml"
+      type: "rss"
+      priority: "high"
+
+    - name: "Stability AI Blog"
+      url: "https://stability.ai/news"
+      type: "web"
+      priority: "high"
+
+  # 知名AI研究者和博主
+  expert_blogs:
+    - name: "Simon Willison's Weblog"
+      url: "https://simonwillison.net/atom/everything/"
+      type: "rss"
+      priority: "high"
+      tags: ["practical-ai", "llm"]
+
+    - name: "Sebastian Raschka"
+      url: "https://sebastianraschka.com/blog/index.html"
+      type: "web"
+      priority: "medium"
+
+    - name: "Andrej Karpathy"
+      url: "https://karpathy.github.io/feed.xml"
+      type: "rss"
+      priority: "high"
+
+  # AI研究论文和arXiv
+  research_sources:
+    - name: "arXiv AI"
+      url: "http://export.arxiv.org/rss/cs.AI"
+      type: "rss"
+      priority: "medium"
+      max_items: 5
+
+    - name: "arXiv Machine Learning"
+      url: "http://export.arxiv.org/rss/cs.LG"
+      type: "rss"
+      priority: "medium"
+      max_items: 5
+
+    - name: "Papers with Code"
+      url: "https://paperswithcode.com/"
+      type: "web"
+      priority: "medium"
+
+  # 技术社区（重要讨论和发现）
+  community_sources:
+    - name: "Hacker News AI"
+      search_keywords: ["GPT", "Claude", "LLM", "AI"]
+      type: "hackernews"
+      priority: "medium"
+      min_points: 100  # 至少100个赞
+
+    - name: "Reddit r/MachineLearning"
+      url: "https://www.reddit.com/r/MachineLearning/.rss"
+      type: "rss"
+      priority: "medium"
+
+    - name: "Reddit r/LocalLLaMA"
+      url: "https://www.reddit.com/r/LocalLLaMA/.rss"
+      type: "rss"
+      priority: "low"
+
+  # AI新闻媒体
+  news_sites:
+    - name: "The Batch (DeepLearning.AI)"
+      url: "https://www.deeplearning.ai/the-batch/feed/"
+      type: "rss"
+      priority: "high"
+
+    - name: "MIT Technology Review AI"
+      search_keywords: ["artificial intelligence"]
+      type: "search"
+      priority: "medium"
+
+# GitHub配置
+github:
+  trending:
+    languages: ["python", "typescript", "rust", "go"]
+    since: "daily"
+    max_items: 10
+
+  topics:
+    - "artificial-intelligence"
+    - "machine-learning"
+    - "llm"
+    - "generative-ai"
+    - "agent"
+
+# AI评估配置
+evaluation:
+  model: "abab6.5s-chat"  # MiniMax模型
+  criteria:
+    importance_threshold: 6  # 1-10分，低于此分数过滤
+    min_quality_score: 7
+
+  filters:
+    exclude_keywords:
+      - "娱乐"
+      - "八卦"
+      - "明星"
+      - "celebrity gossip"
+
+    focus_keywords:
+      - "AI"
+      - "人工智能"
+      - "科技"
+      - "创新"
+      - "突破"
+      - "technology"
+      - "innovation"
+      - "breakthrough"
+
+# 通知配置
+notification:
+  email:
+    enabled: true
+    format: "markdown"
+    receiver: "ltwoggbuty2mh@gmail.com"
+
+  telegram:
+    enabled: false
+    format: "markdown"
+
+  schedule:
+    times:
+      - "08:00"
+      - "20:00"
+    timezone: "Asia/Shanghai"

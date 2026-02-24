@@ -175,6 +175,64 @@ tech_sources:
       type: "search"
       priority: "medium"
 
+# 搜索API配置（Tavily + Exa）
+search_apis:
+  tavily:
+    enabled: true
+    search_depth: "basic"       # basic=免费额度, advanced=深度提取
+    max_results_per_query: 5
+  exa:
+    enabled: true
+    use_autoprompt: true
+    max_results_per_query: 5
+
+# AI实践内容搜索配置（通过搜索API主动发现）
+ai_content_searches:
+  practical_tutorials:
+    queries:
+      - "AI tutorial hands-on implementation guide 2025 2026"
+      - "LLM application development tutorial practical"
+      - "machine learning practical project walkthrough step by step"
+    max_items: 10
+    days: 14
+
+  ai_twitter:
+    queries:
+      - "AI breakthrough LLM new model release"
+      - "Claude Anthropic OpenAI new feature announcement"
+      - "AI agent framework tool open source"
+    max_items: 8
+    days: 7
+    exa_only: true             # Twitter内容只用Exa (category=tweet)
+
+  claude_anthropic:
+    queries:
+      - "Claude API tutorial anthropic best practices guide"
+      - "Claude Code skills MCP server development guide"
+      - "Anthropic Claude model practical usage tips"
+      - "Claude prompt engineering techniques examples"
+    max_items: 8
+    days: 30
+
+  openai_practical:
+    queries:
+      - "OpenAI API tutorial GPT practical guide"
+      - "ChatGPT custom GPT development building"
+      - "OpenAI function calling assistants API tutorial"
+      - "GPT-4 practical use cases implementation"
+    max_items: 8
+    days: 30
+
+  ai_engineering:
+    queries:
+      - "AI agent building framework LangChain CrewAI tutorial"
+      - "RAG retrieval augmented generation implementation guide"
+      - "LLM deployment production optimization best practices"
+      - "prompt engineering advanced techniques examples"
+      - "AI coding assistant development workflow tools"
+    max_items: 10
+    days: 14
+
 # GitHub配置
 github:
   trending:

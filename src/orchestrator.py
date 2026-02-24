@@ -14,6 +14,7 @@ from .agents.europe_agent import EuropeNewsAgent
 from .agents.others_agent import OthersNewsAgent
 from .agents.tech_agent import TechNewsAgent
 from .agents.github_agent import GitHubAgent
+from .agents.ai_content_agent import AIContentAgent
 from .evaluator.ai_evaluator import MiniMaxEvaluator
 from .notifier.email_notifier import EmailNotifier
 
@@ -39,6 +40,7 @@ class NewsOrchestrator:
         self.others_agent = OthersNewsAgent(self.config)
         self.tech_agent = TechNewsAgent(self.config)
         self.github_agent = GitHubAgent(self.config)
+        self.ai_content_agent = AIContentAgent(self.config)
 
         # 初始化AI评估器
         minimax_key = os.getenv('MINIMAX_API_KEY')
@@ -124,6 +126,7 @@ class NewsOrchestrator:
             'others': self.others_agent.collect(),
             'tech': self.tech_agent.collect(),
             'github': self.github_agent.collect(),
+            'ai_content': self.ai_content_agent.collect(),
         }
 
         # 并行执行所有任务
@@ -322,6 +325,19 @@ class NewsOrchestrator:
 
                     evaluated['tech']['articles'] = all_articles
 
+        # 评估AI实践内容（搜索API结果）
+        if 'ai_content' in all_results and all_results['ai_content']:
+            evaluated['ai_content'] = {}
+            ai_data = all_results['ai_content']
+
+            for category, articles in ai_data.items():
+                if articles:
+                    # 搜索API结果不用AI评估，直接给默认分数
+                    for article in articles:
+                        article['score'] = article.get('score', 7)
+                    evaluated['ai_content'][category] = articles
+                    logger.info(f"AI content - {category}: {len(articles)} articles")
+
         # 评估GitHub项目
         if 'github' in all_results:
             evaluated['github'] = {}
@@ -448,6 +464,48 @@ class NewsOrchestrator:
                         report += f"   _({title_original})_\n"
                     report += f"   来源：{source}\n"
                     report += f"   🔗 {link}\n\n"
+
+            report += "---\n\n"
+
+        # AI实践内容（搜索API发现）
+        if 'ai_content' in evaluated_results and evaluated_results['ai_content']:
+            ai_content = evaluated_results['ai_content']
+
+            report += "## 🔬 AI实践精选\n\n"
+
+            # 定义各分类的显示顺序和标题
+            category_display = [
+                ('claude_anthropic', '### Claude / Anthropic 实践', 8),
+                ('openai_practical', '### OpenAI 实践', 8),
+                ('ai_engineering', '### AI工程与工具', 10),
+                ('practical_tutorials', '### AI实践教程', 8),
+                ('ai_twitter', '### AI Twitter 热议', 6),
+            ]
+
+            for category_key, section_title, max_show in category_display:
+                articles = ai_content.get(category_key, [])
+                if articles:
+                    report += f"{section_title}\n\n"
+                    for idx, article in enumerate(articles[:max_show], 1):
+                        title = article.get('title', '')
+                        link = article.get('link', '')
+                        summary = article.get('summary', '')
+                        source_api = article.get('source_api', '')
+                        author = article.get('author', '')
+
+                        report += f"**{idx}. {title}**\n"
+                        if author:
+                            report += f"   作者：{author}\n"
+                        if summary:
+                            # 截断摘要到150字符
+                            display_summary = summary[:150] + '...' if len(summary) > 150 else summary
+                            report += f"   {display_summary}\n"
+                        if link:
+                            report += f"   🔗 {link}\n\n"
+                        else:
+                            report += "\n"
+
+                    report += "\n"
 
             report += "---\n\n"
 

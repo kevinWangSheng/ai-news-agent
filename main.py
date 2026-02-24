@@ -48,6 +48,14 @@ async def main():
         logger.error("For Gmail, you need an App Password: https://myaccount.google.com/apppasswords")
         sys.exit(1)
 
+    # 检查可选的搜索API环境变量
+    optional_search_vars = ['TAVILY_API_KEY', 'EXA_API_KEY']
+    available_search = [var for var in optional_search_vars if os.getenv(var)]
+    if available_search:
+        logger.info(f"Search APIs available: {', '.join(available_search)}")
+    else:
+        logger.warning("No search API keys found (TAVILY_API_KEY, EXA_API_KEY). AI content search will be skipped.")
+
     # 配置文件路径
     config_path = Path(__file__).parent / 'config' / 'config.yaml'
 

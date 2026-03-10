@@ -48,7 +48,8 @@ class GitHubAgent:
         # 2. 搜索AI相关项目
         topics = self.github_config.get('topics', [])
 
-        for topic in topics[:2]:  # 限制主题数量
+        max_topic_searches = self.github_config.get('max_topic_searches', 4)
+        for topic in topics[:max_topic_searches]:
             try:
                 logger.info(f"Searching projects for topic: {topic}")
                 projects = self.collector.search_github_repos(

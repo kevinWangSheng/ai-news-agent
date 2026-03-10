@@ -1,65 +1,11 @@
-# 新闻聚合系统配置
+# AI Agent 技术博客聚合系统配置
 
-# 地区配置
-regions:
-  asia:
-    - name: "中国"
-      code: "CN"
-      language: "zh-CN"
-      keywords: ["科技", "AI", "经济", "政策"]
-      max_items: 5
-
-    - name: "日本"
-      code: "JP"
-      language: "ja"
-      keywords: ["テクノロジー", "AI", "経済"]
-      max_items: 5
-
-    - name: "新加坡"
-      code: "SG"
-      language: "en"
-      keywords: ["technology", "AI", "business"]
-      max_items: 5
-
-    - name: "台湾"
-      code: "TW"
-      language: "zh-TW"
-      keywords: ["科技", "AI", "產業"]
-      max_items: 5
-
-  europe:
-    - name: "欧洲"
-      code: "EU"
-      language: "en"
-      keywords: ["technology", "AI", "innovation", "policy"]
-      max_items: 8
-
-  americas:
-    - name: "美国"
-      code: "US"
-      language: "en"
-      keywords: ["technology", "AI", "startups", "innovation"]
-      max_items: 10
-
-  others:
-    - name: "澳大利亚"
-      code: "AU"
-      language: "en"
-      keywords: ["technology", "AI", "innovation"]
-      max_items: 5
-
-    - name: "俄罗斯"
-      code: "RU"
-      language: "ru"
-      keywords: ["технологии", "AI", "инновации"]
-      max_items: 5
-
-# AI科技资讯源（扩展版）
+# AI Agent 科技资讯源
 tech_sources:
   # 时间范围设置
-  time_window_days: 30  # 搜索最近30天的内容
+  time_window_days: 30
 
-  # 官方博客（优先级最高）
+  # 官方博客（优先级最高）- 聚焦 Agent 相关厂商
   official_blogs:
     - name: "OpenAI Blog"
       url: "https://openai.com/blog/rss.xml"
@@ -70,42 +16,32 @@ tech_sources:
       url: "https://www.anthropic.com/news"
       type: "web"
       priority: "critical"
-      max_items: 20  # 抓取最近20篇
+      max_items: 20
 
     - name: "Claude Blog"
       url: "https://claude.com/blog"
       type: "web"
       priority: "critical"
-      max_items: 20  # 抓取最近20篇
+      max_items: 20
 
     - name: "Google AI Blog"
       url: "https://ai.googleblog.com/feeds/posts/default"
       type: "rss"
       priority: "critical"
 
-    - name: "DeepMind Blog"
-      url: "https://deepmind.google/blog/rss.xml"
-      type: "rss"
-      priority: "critical"
-
-    - name: "Meta AI Blog"
-      url: "https://ai.meta.com/blog/feed/"
-      type: "rss"
-      priority: "high"
-
-    - name: "Microsoft Research Blog"
-      url: "https://www.microsoft.com/en-us/research/feed/"
-      type: "rss"
-      priority: "high"
-
     - name: "HuggingFace Blog"
       url: "https://huggingface.co/blog/feed.xml"
       type: "rss"
       priority: "high"
 
-    - name: "Stability AI Blog"
-      url: "https://stability.ai/news"
-      type: "web"
+    - name: "LangChain Blog"
+      url: "https://blog.langchain.dev/rss/"
+      type: "rss"
+      priority: "critical"
+
+    - name: "AutoGen Blog"
+      url: "https://microsoft.github.io/autogen/blog/feed.xml"
+      type: "rss"
       priority: "high"
 
   # 知名AI研究者和博主
@@ -114,7 +50,7 @@ tech_sources:
       url: "https://simonwillison.net/atom/everything/"
       type: "rss"
       priority: "high"
-      tags: ["practical-ai", "llm"]
+      tags: ["practical-ai", "llm", "agent"]
 
     - name: "Sebastian Raschka"
       url: "https://sebastianraschka.com/blog/index.html"
@@ -126,7 +62,13 @@ tech_sources:
       type: "rss"
       priority: "high"
 
-  # AI研究论文和arXiv
+    - name: "Lilian Weng"
+      url: "https://lilianweng.github.io/feed.xml"
+      type: "rss"
+      priority: "high"
+      tags: ["agent", "llm", "research"]
+
+  # AI研究论文
   research_sources:
     - name: "arXiv AI"
       url: "http://export.arxiv.org/rss/cs.AI"
@@ -134,124 +76,129 @@ tech_sources:
       priority: "medium"
       max_items: 5
 
-    - name: "arXiv Machine Learning"
-      url: "http://export.arxiv.org/rss/cs.LG"
+    - name: "arXiv Multi-Agent Systems"
+      url: "http://export.arxiv.org/rss/cs.MA"
       type: "rss"
       priority: "medium"
       max_items: 5
 
-    - name: "Papers with Code"
-      url: "https://paperswithcode.com/"
-      type: "web"
-      priority: "medium"
-
-  # 技术社区（重要讨论和发现）
+  # 技术社区（Agent 相关）
   community_sources:
     - name: "Hacker News AI"
-      search_keywords: ["GPT", "Claude", "LLM", "AI"]
+      search_keywords: ["AI agent", "LangChain", "CrewAI", "MCP", "Claude", "tool use"]
       type: "hackernews"
       priority: "medium"
-      min_points: 100  # 至少100个赞
+      min_points: 100
 
     - name: "Reddit r/MachineLearning"
       url: "https://www.reddit.com/r/MachineLearning/.rss"
       type: "rss"
       priority: "medium"
 
-    - name: "Reddit r/LocalLLaMA"
-      url: "https://www.reddit.com/r/LocalLLaMA/.rss"
+    - name: "Reddit r/LangChain"
+      url: "https://www.reddit.com/r/LangChain/.rss"
       type: "rss"
-      priority: "low"
-
-  # AI新闻媒体
-  news_sites:
-    - name: "The Batch (DeepLearning.AI)"
-      url: "https://www.deeplearning.ai/the-batch/feed/"
-      type: "rss"
-      priority: "high"
-
-    - name: "MIT Technology Review AI"
-      search_keywords: ["artificial intelligence"]
-      type: "search"
       priority: "medium"
 
 # 搜索API配置（Tavily + Exa）
 search_apis:
   tavily:
     enabled: true
-    search_depth: "basic"       # basic=免费额度, advanced=深度提取
+    search_depth: "basic"
     max_results_per_query: 5
   exa:
     enabled: true
     use_autoprompt: true
     max_results_per_query: 5
 
-# AI实践内容搜索配置（通过搜索API主动发现）
+# AI Agent 内容搜索配置（通过搜索API主动发现）
 ai_content_searches:
-  practical_tutorials:
+  agent_frameworks:
     queries:
-      - "AI tutorial hands-on implementation guide 2025 2026"
-      - "LLM application development tutorial practical"
-      - "machine learning practical project walkthrough step by step"
+      - "LangChain agent tutorial guide 2025 2026"
+      - "CrewAI multi-agent tutorial getting started"
+      - "AutoGen agent framework tutorial practical"
+      - "AI agent framework comparison LangGraph"
     max_items: 10
     days: 14
 
-  ai_twitter:
+  agent_protocols:
     queries:
-      - "AI breakthrough LLM new model release"
-      - "Claude Anthropic OpenAI new feature announcement"
-      - "AI agent framework tool open source"
+      - "MCP model context protocol server tool tutorial"
+      - "LLM tool use function calling implementation guide"
+      - "AI agent tool integration API orchestration"
+      - "Claude MCP server development practical guide"
+    max_items: 10
+    days: 14
+
+  agentic_workflows:
+    queries:
+      - "multi-agent system architecture design pattern"
+      - "agentic workflow orchestration deployment production"
+      - "AI agent memory planning reasoning implementation"
+      - "autonomous agent system building practical"
+    max_items: 10
+    days: 14
+
+  agent_twitter:
+    queries:
+      - "AI agent framework LangChain CrewAI AutoGen update"
+      - "MCP tool use Claude agent announcement"
+      - "multi-agent system open source new release"
     max_items: 8
     days: 7
-    exa_only: true             # Twitter内容只用Exa (category=tweet)
+    exa_only: true
 
-  claude_anthropic:
+  agent_chinese:
     queries:
-      - "Claude API tutorial anthropic best practices guide"
-      - "Claude Code skills MCP server development guide"
-      - "Anthropic Claude model practical usage tips"
-      - "Claude prompt engineering techniques examples"
-    max_items: 8
-    days: 30
-
-  openai_practical:
-    queries:
-      - "OpenAI API tutorial GPT practical guide"
-      - "ChatGPT custom GPT development building"
-      - "OpenAI function calling assistants API tutorial"
-      - "GPT-4 practical use cases implementation"
-    max_items: 8
-    days: 30
-
-  ai_engineering:
-    queries:
-      - "AI agent building framework LangChain CrewAI tutorial"
-      - "RAG retrieval augmented generation implementation guide"
-      - "LLM deployment production optimization best practices"
-      - "prompt engineering advanced techniques examples"
-      - "AI coding assistant development workflow tools"
+      - "AI Agent 智能体 教程 实践 开发"
+      - "LangChain MCP 智能体 中文教程"
+      - "多智能体 框架 应用 部署"
+      - "AI Agent 工具调用 function calling 实践"
     max_items: 10
     days: 14
 
-# GitHub配置
+# 中文平台配置
+chinese_platforms:
+  enabled: true
+  platforms:
+    - name: "掘金"
+      domain: "juejin.cn"
+      keywords: ["AI Agent", "智能体", "LangChain", "MCP", "多智能体"]
+      max_items: 8
+
+    - name: "知乎"
+      domain: "zhihu.com"
+      keywords: ["AI Agent", "智能体", "LangChain", "MCP", "大模型Agent"]
+      max_items: 8
+
+    - name: "CSDN"
+      domain: "csdn.net"
+      keywords: ["AI Agent", "智能体", "LangChain", "MCP", "多智能体"]
+      max_items: 8
+
+# GitHub配置（聚焦 Agent 项目）
 github:
   trending:
-    languages: ["python", "typescript", "rust", "go"]
+    languages: ["python", "typescript"]
     since: "daily"
     max_items: 10
 
   topics:
-    - "artificial-intelligence"
-    - "machine-learning"
-    - "llm"
-    - "generative-ai"
-    - "agent"
+    - "ai-agent"
+    - "llm-agent"
+    - "langchain"
+    - "crewai"
+    - "autogen"
+    - "mcp-server"
+    - "multi-agent"
+  max_topic_searches: 4
 
-# AI评估配置
+# AI评估配置（Agent 领域专家视角）
 evaluation:
-  model: "abab6.5s-chat"  # MiniMax模型
+  model: "abab6.5s-chat"
   criteria:
-    importance_threshold: 6  # 1-10分，低于此分数过滤
+    importance_threshold: 6
     min_quality_score: 7
 
   filters:
@@ -260,16 +207,24 @@ evaluation:
       - "八卦"
       - "明星"
       - "celebrity gossip"
+      - "image generation"
+      - "stable diffusion"
+      - "midjourney"
+      - "text to image"
 
     focus_keywords:
-      - "AI"
-      - "人工智能"
-      - "科技"
-      - "创新"
-      - "突破"
-      - "technology"
-      - "innovation"
-      - "breakthrough"
+      - "AI Agent"
+      - "智能体"
+      - "LangChain"
+      - "CrewAI"
+      - "AutoGen"
+      - "MCP"
+      - "tool use"
+      - "function calling"
+      - "multi-agent"
+      - "agent framework"
+      - "agentic workflow"
+      - "agent orchestration"
 
 # 通知配置
 notification:

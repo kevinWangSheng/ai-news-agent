@@ -19,52 +19,6 @@ class MiniMaxEvaluator:
         self.group_id = group_id
         self.base_url = "https://api.minimax.io/v1/text/chatcompletion_v2"
 
-    def evaluate_news(
-        self,
-        articles: List[Dict],
-        region: str,
-        criteria: Dict
-    ) -> List[Dict]:
-        """
-        评估新闻文章的重要性和质量
-
-        Args:
-            articles: 文章列表
-            region: 地区名称
-            criteria: 评估标准
-
-        Returns:
-            评分后的文章列表
-        """
-        if not articles:
-            return []
-
-        # 构建评估Prompt
-        prompt = self._build_news_evaluation_prompt(articles, region, criteria)
-
-        try:
-            # 调用MiniMax API
-            response = self._call_minimax(prompt)
-
-            # 解析评估结果
-            evaluated_articles = self._parse_evaluation_results(response, articles)
-
-            # 根据分数过滤
-            threshold = criteria.get('importance_threshold', 6)
-            filtered = [
-                article for article in evaluated_articles
-                if article.get('score', 0) >= threshold
-            ]
-
-            # 按分数排序
-            filtered.sort(key=lambda x: x.get('score', 0), reverse=True)
-
-            return filtered
-
-        except Exception as e:
-            logger.error(f"Error evaluating news: {e}")
-            return articles[:5]  # 失败时返回前5条
-
     def evaluate_tech_articles(
         self,
         articles: List[Dict],
@@ -164,9 +118,9 @@ class MiniMaxEvaluator:
             格式化的Markdown日报
         """
         prompt = f"""
-你是一个专业的新闻编辑，负责生成每日科技资讯简报。
+你是一个专业的AI Agent领域编辑，负责生成每日AI Agent技术博客精选。
 
-以下是今天收集到的各地区新闻、AI科技文章和GitHub项目：
+以下是今天收集到的AI Agent相关博客、框架教程和GitHub项目：
 
 {json.dumps(all_results, ensure_ascii=False, indent=2)}
 
@@ -174,12 +128,13 @@ class MiniMaxEvaluator:
 
 1. 使用Markdown格式
 2. 分为以下几个部分：
-   - 📰 全球要闻精选
-   - 🤖 AI科技动态
-   - 💻 GitHub热门项目
-3. 每条新闻只用1-2句话概括核心内容
-4. 标注信息来源和地区
-5. 突出重要性和影响
+   - AI Agent 官方博客与专家动态
+   - AI Agent 框架与工具
+   - GitHub Agent 开源项目
+   - 中文社区 Agent 动态
+3. 每条内容只用1-2句话概括核心内容
+4. 标注信息来源
+5. 突出与Agent架构、tool use、MCP等的关联
 6. 总长度控制在800字以内
 
 开始生成日报：
@@ -192,58 +147,6 @@ class MiniMaxEvaluator:
         except Exception as e:
             logger.error(f"Error generating summary: {e}")
             return "生成摘要失败，请查看详细数据。"
-
-    def _build_news_evaluation_prompt(
-        self,
-        articles: List[Dict],
-        region: str,
-        criteria: Dict
-    ) -> str:
-        """构建新闻评估Prompt"""
-
-        articles_text = ""
-        for idx, article in enumerate(articles, 1):
-            articles_text += f"\n{idx}. 标题: {article.get('title', '')}\n"
-            articles_text += f"   来源: {article.get('source', '')}\n"
-            articles_text += f"   摘要: {article.get('summary', '')[:200]}\n"
-
-        exclude_keywords = criteria.get('filters', {}).get('exclude_keywords', [])
-        focus_keywords = criteria.get('filters', {}).get('focus_keywords', [])
-
-        prompt = f"""
-你是专业的新闻分析师，负责评估和翻译国际新闻。
-
-地区：{region}
-
-以下是待评估的新闻列表：
-{articles_text}
-
-任务：
-1. 如果标题是外语（日文、俄文等），翻译成中文
-2. 评估重要性（1-10分）- 影响力和关注度
-3. 生成1句话中文摘要
-
-评估标准：
-- 重点关注：{', '.join(focus_keywords)}
-- 过滤掉：{', '.join(exclude_keywords)}
-- 科技、AI、创新相关的内容优先
-
-返回JSON格式：
-{{
-  "evaluations": [
-    {{
-      "index": 1,
-      "score": 8,
-      "title_cn": "中文标题（如果原标题是外语则翻译，否则保持原样）",
-      "summary_cn": "一句话中文摘要",
-      "reason": "重要性评价"
-    }}
-  ]
-}}
-
-只返回JSON，不要其他内容。
-"""
-        return prompt
 
     def _build_tech_evaluation_prompt(
         self,
@@ -268,7 +171,7 @@ class MiniMaxEvaluator:
                     articles_text += f"   简介: {summary[:200]}\n"
 
         prompt = f"""
-你是AI领域资深专家，负责深度评估AI科技文章的价值并生成友好的推荐语。
+你是AI Agent领域资深专家，负责深度评估AI Agent相关文章的价值并生成友好的推荐语。
 
 以下是待评估的AI科技文章：
 
@@ -280,9 +183,9 @@ class MiniMaxEvaluator:
 3. 提取核心亮点（技术突破/应用场景/重要观点）
 
 评估标准：
-- 优先关注：技术突破、实际应用、行业影响
-- 降低分数：营销软文、无实质内容
-- 特别重视：来自OpenAI、Anthropic、Google等头部厂商的官方博客
+- 优先关注：Agent架构、tool use、MCP、多智能体、框架更新
+- 降低分数：营销软文、无实质内容、与Agent无关的内容
+- 特别重视：来自LangChain、Anthropic、OpenAI等Agent领域厂商的官方博客
 
 返回JSON格式：
 {{

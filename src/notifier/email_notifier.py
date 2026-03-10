@@ -137,13 +137,14 @@ class EmailNotifier:
         """
         # 生成邮件主题
         date_str = datetime.now().strftime('%Y-%m-%d')
-        subject = f"📰 每日科技资讯简报 - {date_str}"
+        subject = f"每日 AI Agent 技术博客精选 - {date_str}"
 
         # 添加邮件头部
         header = f"""
-📅 每日科技资讯简报
-🕐 {datetime.now().strftime('%Y-%m-%d %H:%M')}
-{'=' * 50}
+# 每日 AI Agent 技术博客精选
+{datetime.now().strftime('%Y-%m-%d %H:%M')}
+
+---
 
 """
         full_report = header + report
@@ -151,9 +152,8 @@ class EmailNotifier:
         # 添加邮件底部
         footer = f"""
 
-{'=' * 50}
-🤖 由AI自动生成并筛选
-📧 如需停止接收，请回复此邮件
+---
+由AI自动聚合并筛选 | 专注AI Agent领域
 """
         full_report += footer
 

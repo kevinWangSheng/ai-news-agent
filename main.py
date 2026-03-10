@@ -1,5 +1,5 @@
 """
-新闻聚合系统 - 主入口
+AI Agent 技术博客聚合系统 - 主入口
 """
 
 import asyncio
@@ -36,7 +36,7 @@ async def main():
     setup_logging()
     logger = logging.getLogger(__name__)
 
-    logger.info("News Aggregation System Starting...")
+    logger.info("AI Agent Blog Aggregation System Starting...")
 
     # 检查必需的环境变量
     required_vars = ['MINIMAX_API_KEY', 'EMAIL_SENDER', 'EMAIL_PASSWORD', 'EMAIL_RECEIVER']
@@ -69,10 +69,10 @@ async def main():
         success = await orchestrator.run()
 
         if success:
-            logger.info("✓ News aggregation completed successfully!")
+            logger.info("AI Agent blog aggregation completed successfully!")
             sys.exit(0)
         else:
-            logger.error("✗ News aggregation failed")
+            logger.error("AI Agent blog aggregation failed")
             sys.exit(1)
 
     except Exception as e:

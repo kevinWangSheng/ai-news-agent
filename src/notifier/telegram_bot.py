@@ -119,7 +119,7 @@ class TelegramNotifier:
         # 添加时间戳和标题
         from datetime import datetime
 
-        header = f"📅 *每日科技资讯简报*\n"
+        header = f"📅 *每日 AI Agent 技术博客精选*\n"
         header += f"🕐 {datetime.now().strftime('%Y-%m-%d %H:%M')}\n"
         header += "=" * 30 + "\n\n"
 

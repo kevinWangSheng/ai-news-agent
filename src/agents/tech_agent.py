@@ -1,6 +1,6 @@
 """
-AI科技资讯Agent（增强版）
-负责搜集OpenAI、Claude、Google等AI厂商的文章
+AI Agent科技资讯Agent
+负责搜集OpenAI、Anthropic、LangChain等AI Agent相关厂商的博客文章
 支持时间窗口过滤、多源聚合
 """
 
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class TechNewsAgent:
-    """AI科技资讯Agent（增强版）"""
+    """AI Agent科技资讯Agent"""
 
     def __init__(self, config: Dict):
         self.config = config
@@ -30,7 +30,6 @@ class TechNewsAgent:
             'expert_blogs': [],        # 专家博客
             'research_papers': [],     # 研究论文
             'community': [],           # 社区讨论
-            'news_articles': []        # 新闻
         }
 
         # 计算时间窗口

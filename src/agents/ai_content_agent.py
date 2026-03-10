@@ -1,19 +1,18 @@
 """
-AI实践内容Agent
-使用Tavily + Exa搜索API主动发现AI实践类文章、教程、Twitter讨论等
+AI Agent内容搜索Agent
+使用Tavily + Exa搜索API主动发现AI Agent相关文章、教程、Twitter讨论等
 """
 
 import asyncio
 import logging
 from typing import List, Dict
-from datetime import datetime, timedelta
 from ..collectors.search_api_collector import SearchAPICollector
 
 logger = logging.getLogger(__name__)
 
 
 class AIContentAgent:
-    """AI实践内容搜索Agent"""
+    """AI Agent内容搜索Agent"""
 
     def __init__(self, config: Dict):
         self.config = config
@@ -22,8 +21,8 @@ class AIContentAgent:
         self.collector = SearchAPICollector(self.search_config)
 
     async def collect(self) -> Dict[str, List[Dict]]:
-        """搜集所有AI实践类内容"""
-        logger.info("AIContentAgent: Starting AI content collection via search APIs...")
+        """搜集所有AI Agent实践类内容"""
+        logger.info("AIContentAgent: Starting AI Agent content collection via search APIs...")
 
         # 检查是否有可用的搜索API
         if not self.collector.tavily_client and not self.collector.exa_client:
@@ -31,20 +30,20 @@ class AIContentAgent:
             return {}
 
         results = {
-            'practical_tutorials': [],
-            'ai_twitter': [],
-            'claude_anthropic': [],
-            'openai_practical': [],
-            'ai_engineering': [],
+            'agent_frameworks': [],
+            'agent_protocols': [],
+            'agentic_workflows': [],
+            'agent_twitter': [],
+            'agent_chinese': [],
         }
 
         # 并行执行所有搜索类别
         tasks = [
-            ('practical_tutorials', self._search_practical_tutorials()),
-            ('ai_twitter', self._search_twitter_ai()),
-            ('claude_anthropic', self._search_claude_content()),
-            ('openai_practical', self._search_openai_content()),
-            ('ai_engineering', self._search_ai_engineering()),
+            ('agent_frameworks', self._search_agent_frameworks()),
+            ('agent_protocols', self._search_agent_protocols()),
+            ('agentic_workflows', self._search_agentic_workflows()),
+            ('agent_twitter', self._search_agent_twitter()),
+            ('agent_chinese', self._search_agent_chinese()),
         ]
 
         task_results = await asyncio.gather(
@@ -58,9 +57,9 @@ class AIContentAgent:
             else:
                 results[key] = result
 
-        # 跨分类去重（按优先级保留：claude > openai > engineering > tutorials > twitter）
+        # 跨分类去重（按优先级保留）
         seen_urls = set()
-        priority_order = ['claude_anthropic', 'openai_practical', 'ai_engineering', 'practical_tutorials', 'ai_twitter']
+        priority_order = ['agent_frameworks', 'agent_protocols', 'agentic_workflows', 'agent_chinese', 'agent_twitter']
         for key in priority_order:
             if key in results:
                 unique = []
@@ -80,13 +79,13 @@ class AIContentAgent:
 
         return results
 
-    async def _search_practical_tutorials(self) -> List[Dict]:
-        """搜索AI实践教程"""
-        category_config = self.content_config.get('practical_tutorials', {})
+    async def _search_agent_frameworks(self) -> List[Dict]:
+        """搜索AI Agent框架教程"""
+        category_config = self.content_config.get('agent_frameworks', {})
         queries = category_config.get('queries', [
-            "AI tutorial hands-on implementation guide 2025 2026",
-            "LLM application development tutorial practical",
-            "machine learning practical project walkthrough",
+            "LangChain agent tutorial guide 2025 2026",
+            "CrewAI multi-agent tutorial getting started",
+            "AutoGen agent framework tutorial practical",
         ])
         max_items = category_config.get('max_items', 10)
         days = category_config.get('days', 14)
@@ -99,19 +98,69 @@ class AIContentAgent:
                 days=days,
             )
             for r in results:
-                r['source_type'] = 'practical_tutorials'
-                r['category_label'] = 'AI实践教程'
+                r['source_type'] = 'agent_frameworks'
+                r['category_label'] = 'Agent框架教程'
             all_results.extend(results)
 
         return self._deduplicate(all_results)[:max_items]
 
-    async def _search_twitter_ai(self) -> List[Dict]:
-        """搜索Twitter/X上的AI热门内容（仅用Exa）"""
-        category_config = self.content_config.get('ai_twitter', {})
+    async def _search_agent_protocols(self) -> List[Dict]:
+        """搜索Agent协议与工具集成（MCP / Function Calling）"""
+        category_config = self.content_config.get('agent_protocols', {})
         queries = category_config.get('queries', [
-            "AI breakthrough LLM new model release",
-            "Claude Anthropic OpenAI new feature announcement",
-            "AI agent framework tool open source",
+            "MCP model context protocol server tool tutorial",
+            "LLM tool use function calling implementation guide",
+            "AI agent tool integration API orchestration",
+        ])
+        max_items = category_config.get('max_items', 10)
+        days = category_config.get('days', 14)
+
+        all_results = []
+        for query in queries:
+            results = self.collector.search_all(
+                query=query,
+                max_per_api=5,
+                days=days,
+            )
+            for r in results:
+                r['source_type'] = 'agent_protocols'
+                r['category_label'] = '协议与工具集成'
+            all_results.extend(results)
+
+        return self._deduplicate(all_results)[:max_items]
+
+    async def _search_agentic_workflows(self) -> List[Dict]:
+        """搜索Agentic Workflow相关内容"""
+        category_config = self.content_config.get('agentic_workflows', {})
+        queries = category_config.get('queries', [
+            "multi-agent system architecture design pattern",
+            "agentic workflow orchestration deployment production",
+            "AI agent memory planning reasoning implementation",
+        ])
+        max_items = category_config.get('max_items', 10)
+        days = category_config.get('days', 14)
+
+        all_results = []
+        for query in queries:
+            results = self.collector.search_all(
+                query=query,
+                max_per_api=5,
+                days=days,
+            )
+            for r in results:
+                r['source_type'] = 'agentic_workflows'
+                r['category_label'] = 'Agentic Workflow'
+            all_results.extend(results)
+
+        return self._deduplicate(all_results)[:max_items]
+
+    async def _search_agent_twitter(self) -> List[Dict]:
+        """搜索Twitter/X上的AI Agent热门内容（仅用Exa）"""
+        category_config = self.content_config.get('agent_twitter', {})
+        queries = category_config.get('queries', [
+            "AI agent framework LangChain CrewAI AutoGen update",
+            "MCP tool use Claude agent announcement",
+            "multi-agent system open source new release",
         ])
         max_items = category_config.get('max_items', 8)
         days = category_config.get('days', 7)
@@ -126,73 +175,19 @@ class AIContentAgent:
                 exa_only=True,
             )
             for r in results:
-                r['source_type'] = 'ai_twitter'
-                r['category_label'] = 'AI Twitter热议'
+                r['source_type'] = 'agent_twitter'
+                r['category_label'] = 'AI Agent Twitter热议'
             all_results.extend(results)
 
         return self._deduplicate(all_results)[:max_items]
 
-    async def _search_claude_content(self) -> List[Dict]:
-        """搜索Claude/Anthropic实践内容"""
-        category_config = self.content_config.get('claude_anthropic', {})
+    async def _search_agent_chinese(self) -> List[Dict]:
+        """搜索中文AI Agent内容"""
+        category_config = self.content_config.get('agent_chinese', {})
         queries = category_config.get('queries', [
-            "Claude API tutorial anthropic best practices guide",
-            "Claude Code skills MCP server development guide",
-            "Anthropic Claude model practical usage tips",
-            "Claude prompt engineering techniques examples",
-        ])
-        max_items = category_config.get('max_items', 8)
-        days = category_config.get('days', 30)
-
-        all_results = []
-        for query in queries:
-            results = self.collector.search_all(
-                query=query,
-                max_per_api=5,
-                days=days,
-            )
-            for r in results:
-                r['source_type'] = 'claude_anthropic'
-                r['category_label'] = 'Claude/Anthropic实践'
-            all_results.extend(results)
-
-        return self._deduplicate(all_results)[:max_items]
-
-    async def _search_openai_content(self) -> List[Dict]:
-        """搜索OpenAI实践内容"""
-        category_config = self.content_config.get('openai_practical', {})
-        queries = category_config.get('queries', [
-            "OpenAI API tutorial GPT practical guide",
-            "ChatGPT custom GPT development building",
-            "OpenAI function calling assistants API tutorial",
-            "GPT-4 practical use cases implementation",
-        ])
-        max_items = category_config.get('max_items', 8)
-        days = category_config.get('days', 30)
-
-        all_results = []
-        for query in queries:
-            results = self.collector.search_all(
-                query=query,
-                max_per_api=5,
-                days=days,
-            )
-            for r in results:
-                r['source_type'] = 'openai_practical'
-                r['category_label'] = 'OpenAI实践'
-            all_results.extend(results)
-
-        return self._deduplicate(all_results)[:max_items]
-
-    async def _search_ai_engineering(self) -> List[Dict]:
-        """搜索AI工程实践"""
-        category_config = self.content_config.get('ai_engineering', {})
-        queries = category_config.get('queries', [
-            "AI agent building framework LangChain CrewAI tutorial",
-            "RAG retrieval augmented generation implementation guide",
-            "LLM deployment production optimization best practices",
-            "prompt engineering advanced techniques examples",
-            "AI coding assistant development workflow",
+            "AI Agent 智能体 教程 实践 开发",
+            "LangChain MCP 智能体 中文教程",
+            "多智能体 框架 应用 部署",
         ])
         max_items = category_config.get('max_items', 10)
         days = category_config.get('days', 14)
@@ -205,8 +200,8 @@ class AIContentAgent:
                 days=days,
             )
             for r in results:
-                r['source_type'] = 'ai_engineering'
-                r['category_label'] = 'AI工程实践'
+                r['source_type'] = 'agent_chinese'
+                r['category_label'] = '中文AI Agent内容'
             all_results.extend(results)
 
         return self._deduplicate(all_results)[:max_items]

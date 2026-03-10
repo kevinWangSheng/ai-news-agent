@@ -5,7 +5,7 @@
 import asyncio
 import logging
 import os
-from typing import Dict, Any
+from typing import Dict, Any, List
 import yaml
 
 from .agents.tech_agent import TechNewsAgent
@@ -42,9 +42,6 @@ class NewsOrchestrator:
         # 初始化通知器
         self.notifier = EmailNotifier()
 
-        # 评估标准
-        self.eval_criteria = self.config.get('evaluation', {})
-
     def _load_config(self, config_path: str) -> Dict:
         """加载配置文件"""
         try:
@@ -67,15 +64,15 @@ class NewsOrchestrator:
             logger.info("\n[Step 1] Collecting AI Agent content from all sources...")
             all_results = await self._collect_all_news()
 
-            # 第二步：AI评估和筛选
-            logger.info("\n[Step 2] Evaluating content with AI...")
+            # 第二步：AI评估、排序和筛选
+            logger.info("\n[Step 2] AI evaluating and ranking content...")
             evaluated_results = await self._evaluate_all_content(all_results)
 
-            # 第三步：生成日报摘要
+            # 第三步：生成日报
             logger.info("\n[Step 3] Generating daily report...")
             report = self._generate_report(evaluated_results)
 
-            # 保存报告到文件用于检查
+            # 保存报告
             report_file = "output/daily_report.md"
             os.makedirs("output", exist_ok=True)
             with open(report_file, "w", encoding="utf-8") as f:
@@ -108,10 +105,8 @@ class NewsOrchestrator:
             'chinese_platform': self.chinese_platform_agent.collect(),
         }
 
-        # 并行执行所有任务
         results = await asyncio.gather(*tasks.values(), return_exceptions=True)
 
-        # 组合结果
         all_results = {}
         for key, result in zip(tasks.keys(), results):
             if isinstance(result, Exception):
@@ -124,152 +119,114 @@ class NewsOrchestrator:
         total_items = 0
         for category, data in all_results.items():
             if isinstance(data, dict):
-                for region, items in data.items():
+                for sub, items in data.items():
                     if isinstance(items, list):
                         total_items += len(items)
-
         logger.info(f"Total items collected: {total_items}")
 
         return all_results
 
+    # ------------------------------------------------------------------
+    # 核心：所有板块过 LLM 评估 + 排序
+    # ------------------------------------------------------------------
     async def _evaluate_all_content(self, all_results: Dict) -> Dict:
-        """评估所有内容"""
+        """用 LLM 对所有内容评分、翻译、排序"""
 
         evaluated = {}
 
-        # AI评估开关
-        USE_AI_FOR_TECH = False  # AI博客禁用AI评估（避免不稳定）
-
-        # 评估科技文章
-        if 'tech' in all_results:
-            evaluated['tech'] = {}
+        # ---- 1. 官方博客 + 专家博客 ----
+        if 'tech' in all_results and all_results['tech']:
             tech_data = all_results['tech']
 
-            all_tech_articles = []
-            all_tech_articles.extend(tech_data.get('official_blogs', []))
-            all_tech_articles.extend(tech_data.get('expert_blogs', []))
-            all_tech_articles.extend(tech_data.get('research_papers', []))
-            all_tech_articles.extend(tech_data.get('community', []))
+            official = tech_data.get('official_blogs', [])
+            expert = tech_data.get('expert_blogs', [])
+            logger.info(f"Evaluating tech: {len(official)} official + {len(expert)} expert blogs")
 
-            logger.info(f"Total tech articles collected: {len(all_tech_articles)}")
-            logger.info(f"  - Official blogs: {len(tech_data.get('official_blogs', []))}")
-            logger.info(f"  - Expert blogs: {len(tech_data.get('expert_blogs', []))}")
-            logger.info(f"  - Research: {len(tech_data.get('research_papers', []))}")
+            evaluated_official = self.evaluator.evaluate_and_rank(
+                articles=official,
+                context="AI Agent 官方博客（来自 Anthropic/OpenAI/LangChain/Google 等）",
+                max_output=12,
+                fetch_content=False,
+            )
 
-            if all_tech_articles:
-                if USE_AI_FOR_TECH:
-                    official = tech_data.get('official_blogs', [])
-                    if official:
-                        logger.info(f"Deep analyzing {len(official)} official blog articles...")
-                        evaluated_official = self.evaluator.evaluate_tech_articles(
-                            articles=official,
-                            criteria=self.eval_criteria,
-                            fetch_content=True
-                        )
-                    else:
-                        evaluated_official = []
+            evaluated_expert = self.evaluator.evaluate_and_rank(
+                articles=expert,
+                context="AI 领域专家博客（Simon Willison/Karpathy/Lilian Weng 等）",
+                max_output=5,
+                fetch_content=False,
+            )
 
-                    other_articles = []
-                    other_articles.extend(tech_data.get('expert_blogs', []))
-                    other_articles.extend(tech_data.get('research_papers', []))
+            evaluated['tech'] = {
+                'official': evaluated_official,
+                'expert': evaluated_expert,
+            }
 
-                    if other_articles:
-                        evaluated_other = self.evaluator.evaluate_tech_articles(
-                            articles=other_articles,
-                            criteria=self.eval_criteria,
-                            fetch_content=False
-                        )
-                    else:
-                        evaluated_other = []
-
-                    all_evaluated = evaluated_official + evaluated_other
-                    all_evaluated.sort(key=lambda x: (
-                        x.get('priority', 'medium') == 'critical',
-                        x.get('score', 0)
-                    ), reverse=True)
-
-                    evaluated['tech']['articles'] = all_evaluated[:15]
-                else:
-                    # 不使用AI，直接显示原始文章
-                    official = tech_data.get('official_blogs', [])
-                    expert = tech_data.get('expert_blogs', [])
-
-                    logger.info(f"No AI evaluation - Official blogs count: {len(official)}")
-                    logger.info(f"No AI evaluation - Expert blogs count: {len(expert)}")
-
-                    all_articles = []
-                    priority_sources = [
-                        'Claude Blog', 'Anthropic News', 'OpenAI Blog',
-                        'LangChain Blog', 'Google AI Blog', 'HuggingFace Blog',
-                        'AutoGen Blog'
-                    ]
-
-                    # 按来源分组
-                    sources_articles = {}
-                    for article in official:
-                        source = article.get('source', 'Unknown')
-                        if source not in sources_articles:
-                            sources_articles[source] = []
-                        sources_articles[source].append(article)
-
-                    for source in priority_sources:
-                        if source in sources_articles:
-                            count = 5 if source in ['Claude Blog', 'Anthropic News', 'LangChain Blog'] else 3
-                            for article in sources_articles[source][:count]:
-                                article['score'] = 8 if source in ['Claude Blog', 'Anthropic News', 'OpenAI Blog', 'LangChain Blog'] else 7
-                                all_articles.append(article)
-
-                    # 添加专家博客
-                    for article in expert[:5]:
-                        article['score'] = 7
-                        all_articles.append(article)
-
-                    evaluated['tech']['articles'] = all_articles
-
-        # 评估AI Agent内容（搜索API结果）
+        # ---- 2. AI Agent 框架/协议/工作流 ----
         if 'ai_content' in all_results and all_results['ai_content']:
-            evaluated['ai_content'] = {}
             ai_data = all_results['ai_content']
+            evaluated['ai_content'] = {}
 
-            for category, articles in ai_data.items():
+            section_map = {
+                'agent_frameworks': ("Agent 框架教程（LangChain/CrewAI/AutoGen）", 8),
+                'agent_protocols': ("Agent 协议与工具集成（MCP/Function Calling）", 8),
+                'agentic_workflows': ("Agentic Workflow / 多智能体架构", 8),
+                'agent_twitter': ("AI Agent Twitter/X 动态", 5),
+                'agent_chinese': ("中文 AI Agent 内容", 8),
+            }
+
+            for category, (context, max_out) in section_map.items():
+                articles = ai_data.get(category, [])
                 if articles:
-                    for article in articles:
-                        article['score'] = article.get('score', 7)
-                    evaluated['ai_content'][category] = articles
-                    logger.info(f"AI content - {category}: {len(articles)} articles")
+                    logger.info(f"Evaluating ai_content/{category}: {len(articles)} articles")
+                    ranked = self.evaluator.evaluate_and_rank(
+                        articles=articles,
+                        context=context,
+                        max_output=max_out,
+                    )
+                    evaluated['ai_content'][category] = ranked
 
-        # 评估中文平台内容
+        # ---- 3. 中文平台 ----
         if 'chinese_platform' in all_results and all_results['chinese_platform']:
-            evaluated['chinese_platform'] = {}
             cn_data = all_results['chinese_platform']
-
+            # 合并所有平台文章一起评估
+            all_cn_articles = []
             for platform, articles in cn_data.items():
-                if articles:
-                    for article in articles:
-                        article['score'] = article.get('score', 7)
-                    evaluated['chinese_platform'][platform] = articles
-                    logger.info(f"Chinese platform - {platform}: {len(articles)} articles")
+                for a in articles:
+                    a['platform'] = platform  # 保留来源平台
+                all_cn_articles.extend(articles)
 
-        # 评估GitHub项目
-        if 'github' in all_results:
-            evaluated['github'] = {}
+            if all_cn_articles:
+                logger.info(f"Evaluating chinese_platform: {len(all_cn_articles)} articles")
+                ranked = self.evaluator.evaluate_and_rank(
+                    articles=all_cn_articles,
+                    context="中文技术社区 AI Agent 内容（掘金/知乎/CSDN）",
+                    max_output=10,
+                )
+                evaluated['chinese_platform'] = ranked
+
+        # ---- 4. GitHub 项目 ----
+        if 'github' in all_results and all_results['github']:
             github_data = all_results['github']
-
             all_projects = []
             all_projects.extend(github_data.get('trending', []))
             all_projects.extend(github_data.get('ai_projects', []))
 
             if all_projects:
-                projects = all_projects[:8]
-                for project in projects:
-                    project['score'] = 8
-                evaluated['github']['projects'] = projects
+                logger.info(f"Evaluating github: {len(all_projects)} projects")
+                ranked = self.evaluator.evaluate_github_projects(
+                    projects=all_projects,
+                    max_output=8,
+                )
+                evaluated['github'] = ranked
 
         return evaluated
 
+    # ------------------------------------------------------------------
+    # 报告生成（展示 LLM 推荐语 + 按分数排序后的结果）
+    # ------------------------------------------------------------------
     def _generate_report(self, evaluated_results: Dict) -> str:
         """生成最终报告"""
-        logger.info("Using template to generate report...")
+        logger.info("Generating report from evaluated results...")
         return self._generate_template_report(evaluated_results)
 
     def _generate_template_report(self, evaluated_results: Dict) -> str:
@@ -278,106 +235,75 @@ class NewsOrchestrator:
         report = ""
 
         # === 1. AI Agent 官方博客与专家动态 ===
-        if 'tech' in evaluated_results and evaluated_results['tech'].get('articles'):
-            articles = evaluated_results['tech']['articles']
+        tech = evaluated_results.get('tech', {})
+        official = tech.get('official', [])
+        expert = tech.get('expert', [])
 
+        if official or expert:
             report += "## AI Agent 官方博客与专家动态\n\n"
-            report += f"_本期搜集到 {len(articles)} 篇AI Agent相关博客文章_\n\n"
 
-            # 按来源分类
-            official = [a for a in articles if a.get('source_type') == 'official_blogs']
-            expert = [a for a in articles if a.get('source_type') == 'expert_blogs']
-
-            # 显示官方博客
             if official:
                 report += "### 官方博客\n\n"
-                for idx, article in enumerate(official[:10], 1):
-                    title_original = article.get('title', '')
-                    title_cn = article.get('title_cn', title_original)
-                    link = article.get('link', '')
-                    source = article.get('source', '')
-                    score = article.get('score', 0)
+                report += self._render_articles(official, show_source=True, show_score=True)
 
-                    report += f"**{idx}. {title_cn}**\n"
-                    if title_cn != title_original:
-                        report += f"   _({title_original})_\n"
-                    report += f"   来源：{source} | 评分：{score}/10\n"
-                    if link:
-                        report += f"   {link}\n\n"
-
-            # 显示专家博客
             if expert:
                 report += "### 专家博客\n\n"
-                for idx, article in enumerate(expert[:5], 1):
-                    title_original = article.get('title', '')
-                    title_cn = article.get('title_cn', title_original)
-                    link = article.get('link', '')
-                    source = article.get('source', '')
-
-                    report += f"**{idx}. {title_cn}**\n"
-                    if title_cn != title_original:
-                        report += f"   _({title_original})_\n"
-                    report += f"   来源：{source}\n"
-                    if link:
-                        report += f"   {link}\n\n"
+                report += self._render_articles(expert, show_source=True)
 
             report += "---\n\n"
 
         # === 2. AI Agent 框架与工具 ===
-        if 'ai_content' in evaluated_results and evaluated_results['ai_content']:
-            ai_content = evaluated_results['ai_content']
+        ai_content = evaluated_results.get('ai_content', {})
+        frameworks = ai_content.get('agent_frameworks', [])
+        protocols = ai_content.get('agent_protocols', [])
+        workflows = ai_content.get('agentic_workflows', [])
 
+        if frameworks or protocols or workflows:
             report += "## AI Agent 框架与工具\n\n"
 
-            category_display = [
-                ('agent_frameworks', '### Agent 框架教程', 10),
-                ('agent_protocols', '### 协议与工具集成 (MCP / Function Calling)', 10),
-                ('agentic_workflows', '### Agentic Workflow', 10),
-            ]
+            if frameworks:
+                report += "### Agent 框架教程\n\n"
+                report += self._render_articles(frameworks)
 
-            for category_key, section_title, max_show in category_display:
-                articles = ai_content.get(category_key, [])
-                if articles:
-                    report += f"{section_title}\n\n"
-                    for idx, article in enumerate(articles[:max_show], 1):
-                        title = article.get('title', '')
-                        link = article.get('link', '')
-                        summary = article.get('summary', '')
-                        author = article.get('author', '')
+            if protocols:
+                report += "### 协议与工具集成 (MCP / Function Calling)\n\n"
+                report += self._render_articles(protocols)
 
-                        report += f"**{idx}. {title}**\n"
-                        if author:
-                            report += f"   作者：{author}\n"
-                        if summary:
-                            display_summary = summary[:150] + '...' if len(summary) > 150 else summary
-                            report += f"   {display_summary}\n"
-                        if link:
-                            report += f"   {link}\n\n"
-
-                    report += "\n"
+            if workflows:
+                report += "### Agentic Workflow\n\n"
+                report += self._render_articles(workflows)
 
             report += "---\n\n"
 
         # === 3. GitHub Agent 开源项目 ===
-        if 'github' in evaluated_results and evaluated_results['github'].get('projects'):
+        github_projects = evaluated_results.get('github', [])
+        if github_projects:
             report += "## GitHub Agent 开源项目\n\n"
 
-            for idx, project in enumerate(evaluated_results['github']['projects'][:8], 1):
+            for idx, project in enumerate(github_projects, 1):
                 name = project.get('name', '')
                 author = project.get('author', '')
                 url = project.get('url', '')
                 description = project.get('description', '')
                 stars = project.get('stars', 0)
                 language = project.get('language', '')
+                score = project.get('score', 0)
+                title_cn = project.get('title_cn', '')
+                recommendation = project.get('recommendation', '')
 
-                if stars >= 10000:
-                    stars_display = f"{stars/1000:.1f}k"
-                else:
-                    stars_display = str(stars)
+                stars_display = f"{stars/1000:.1f}k" if stars >= 10000 else str(stars)
 
-                report += f"**{idx}. {author}/{name}**\n"
-                if description:
+                report += f"**{idx}. {author}/{name}**"
+                if score:
+                    report += f" `{score}/10`"
+                report += "\n"
+
+                if title_cn:
+                    report += f"   {title_cn}\n"
+                if description and description != title_cn:
                     report += f"   {description}\n"
+                if recommendation:
+                    report += f"   > {recommendation}\n"
                 report += f"   Stars: {stars_display}"
                 if language:
                     report += f" | {language}"
@@ -388,65 +314,84 @@ class NewsOrchestrator:
             report += "---\n\n"
 
         # === 4. 中文社区 Agent 动态 ===
-        if 'chinese_platform' in evaluated_results and evaluated_results['chinese_platform']:
-            cn_data = evaluated_results['chinese_platform']
-
+        cn_articles = evaluated_results.get('chinese_platform', [])
+        if cn_articles:
             report += "## 中文社区 Agent 动态\n\n"
-
-            for platform_name, articles in cn_data.items():
-                if articles:
-                    report += f"### {platform_name}\n\n"
-                    for idx, article in enumerate(articles[:6], 1):
-                        title = article.get('title', '')
-                        link = article.get('link', '')
-                        summary = article.get('summary', '')
-
-                        report += f"**{idx}. {title}**\n"
-                        if summary:
-                            display_summary = summary[:150] + '...' if len(summary) > 150 else summary
-                            report += f"   {display_summary}\n"
-                        if link:
-                            report += f"   {link}\n\n"
-
-                    report += "\n"
-
+            report += self._render_articles(cn_articles, show_platform=True)
             report += "---\n\n"
 
-        # === 5. AI Agent 中文内容 ===
-        if 'ai_content' in evaluated_results and evaluated_results['ai_content']:
-            ai_content = evaluated_results['ai_content']
-            chinese_articles = ai_content.get('agent_chinese', [])
-            if chinese_articles:
-                report += "## AI Agent 中文精选\n\n"
-                for idx, article in enumerate(chinese_articles[:8], 1):
-                    title = article.get('title', '')
-                    link = article.get('link', '')
-                    summary = article.get('summary', '')
-
-                    report += f"**{idx}. {title}**\n"
-                    if summary:
-                        display_summary = summary[:150] + '...' if len(summary) > 150 else summary
-                        report += f"   {display_summary}\n"
-                    if link:
-                        report += f"   {link}\n\n"
-
-                report += "---\n\n"
+        # === 5. AI Agent 中文精选（搜索API发现） ===
+        agent_chinese = ai_content.get('agent_chinese', [])
+        if agent_chinese:
+            report += "## AI Agent 中文精选\n\n"
+            report += self._render_articles(agent_chinese)
+            report += "---\n\n"
 
         # === 6. AI Agent Twitter/X 热议 ===
-        if 'ai_content' in evaluated_results and evaluated_results['ai_content']:
-            ai_content = evaluated_results['ai_content']
-            twitter_articles = ai_content.get('agent_twitter', [])
-            if twitter_articles:
-                report += "## AI Agent Twitter/X 热议\n\n"
-                for idx, article in enumerate(twitter_articles[:6], 1):
-                    title = article.get('title', '')
-                    link = article.get('link', '')
-                    author = article.get('author', '')
-
-                    report += f"**{idx}. {title}**\n"
-                    if author:
-                        report += f"   作者：{author}\n"
-                    if link:
-                        report += f"   {link}\n\n"
+        twitter = ai_content.get('agent_twitter', [])
+        if twitter:
+            report += "## AI Agent Twitter/X 热议\n\n"
+            report += self._render_articles(twitter, show_author=True)
 
         return report
+
+    # ------------------------------------------------------------------
+    # 渲染文章列表的通用方法
+    # ------------------------------------------------------------------
+    def _render_articles(
+        self,
+        articles: List[Dict],
+        show_source: bool = False,
+        show_score: bool = False,
+        show_author: bool = False,
+        show_platform: bool = False,
+    ) -> str:
+        """渲染文章列表为 Markdown"""
+        text = ""
+        for idx, article in enumerate(articles, 1):
+            title_original = article.get('title', '')
+            title_cn = article.get('title_cn', '')
+            link = article.get('link', '')
+            score = article.get('score', 0)
+            recommendation = article.get('recommendation', '')
+            source = article.get('source', '')
+            author = article.get('author', '')
+            platform = article.get('platform', '') or article.get('source', '')
+            summary = article.get('summary', '')
+
+            # 标题：优先用中文标题
+            display_title = title_cn if title_cn else title_original
+            text += f"**{idx}. {display_title}**"
+            if show_score and score:
+                text += f" `{score}/10`"
+            text += "\n"
+
+            # 如果有中文标题且和原标题不同，显示原标题
+            if title_cn and title_cn != title_original and title_original:
+                text += f"   _({title_original})_\n"
+
+            # 来源 / 平台
+            meta_parts = []
+            if show_source and source:
+                meta_parts.append(f"来源：{source}")
+            if show_platform and platform:
+                meta_parts.append(f"平台：{platform}")
+            if show_author and author:
+                meta_parts.append(f"作者：{author}")
+            if meta_parts:
+                text += f"   {' | '.join(meta_parts)}\n"
+
+            # 推荐语（LLM 生成）
+            if recommendation:
+                text += f"   > {recommendation}\n"
+            elif summary:
+                # 没有推荐语时用摘要兜底
+                display_summary = summary[:120] + '...' if len(summary) > 120 else summary
+                text += f"   {display_summary}\n"
+
+            if link:
+                text += f"   {link}\n\n"
+            else:
+                text += "\n"
+
+        return text

@@ -1,5 +1,5 @@
 """
-AI评估器 - 使用MiniMax API评估和筛选内容
+AI评估器 - 使用MiniMax API评估、排序和筛选内容
 """
 
 import os
@@ -10,6 +10,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# 每批评估的最大文章数
+BATCH_SIZE = 15
+
 
 class MiniMaxEvaluator:
     """MiniMax AI评估器"""
@@ -19,238 +22,197 @@ class MiniMaxEvaluator:
         self.group_id = group_id
         self.base_url = "https://api.minimax.io/v1/text/chatcompletion_v2"
 
-    def evaluate_tech_articles(
+    # ------------------------------------------------------------------
+    # 通用评估入口：适用于任何类型的文章列表
+    # ------------------------------------------------------------------
+    def evaluate_and_rank(
         self,
         articles: List[Dict],
-        criteria: Dict,
-        fetch_content: bool = True
+        context: str = "AI Agent",
+        max_output: int = 10,
+        fetch_content: bool = False,
     ) -> List[Dict]:
         """
-        评估AI科技文章（深度分析）
+        通用评估：给文章打分、翻译标题、生成推荐语，按分数排序返回。
 
         Args:
             articles: 文章列表
-            criteria: 评估标准
-            fetch_content: 是否抓取文章正文进行深度分析
+            context: 评估上下文描述（如 "AI Agent官方博客", "Agent框架教程"）
+            max_output: 最终返回的最大数量
+            fetch_content: 是否抓取正文辅助评估
         """
-
         if not articles:
             return []
 
-        # 准备深度分析内容
+        # 可选：抓取正文
         if fetch_content:
-            from ..collectors.content_fetcher import ContentFetcher
-            fetcher = ContentFetcher()
+            self._fetch_contents(articles[:10])
 
-            # 尝试抓取前5篇文章内容
-            for article in articles[:5]:
-                url = article.get('link', '')
-                if url:
-                    # 尝试抓取完整内容
-                    content = fetcher.fetch_article_content(url, max_length=2000)
-                    if content:
-                        article['full_content'] = content
-                        logger.info(f"Fetched full content for: {article.get('title', '')[:50]}")
-                    elif article.get('summary'):
-                        # 如果抓取失败，使用RSS摘要
-                        article['full_content'] = article.get('summary', '')
-                        logger.info(f"Using RSS summary for: {article.get('title', '')[:50]}")
+        # 分批评估
+        all_evaluated = []
+        for i in range(0, len(articles), BATCH_SIZE):
+            batch = articles[i:i + BATCH_SIZE]
+            evaluated_batch = self._evaluate_batch(batch, context)
+            all_evaluated.extend(evaluated_batch)
 
-        prompt = self._build_tech_evaluation_prompt(articles, criteria)
+        # 按分数降序排序
+        all_evaluated.sort(key=lambda x: x.get('score', 0), reverse=True)
+
+        return all_evaluated[:max_output]
+
+    # ------------------------------------------------------------------
+    # GitHub 项目专用评估
+    # ------------------------------------------------------------------
+    def evaluate_github_projects(
+        self,
+        projects: List[Dict],
+        max_output: int = 8,
+    ) -> List[Dict]:
+        """评估GitHub项目的AI Agent相关性和价值"""
+        if not projects:
+            return []
+
+        prompt = self._build_github_prompt(projects)
+
+        try:
+            response = self._call_minimax(prompt, max_tokens=2000)
+            evaluated = self._parse_evaluation_results(response, projects)
+            evaluated.sort(key=lambda x: x.get('score', 0), reverse=True)
+            return evaluated[:max_output]
+        except Exception as e:
+            logger.error(f"Error evaluating GitHub projects: {e}")
+            # 降级：按 stars 排序
+            projects.sort(key=lambda x: x.get('stars', 0), reverse=True)
+            for p in projects:
+                p['score'] = 7
+            return projects[:max_output]
+
+    # ------------------------------------------------------------------
+    # 内部：单批评估
+    # ------------------------------------------------------------------
+    def _evaluate_batch(self, articles: List[Dict], context: str) -> List[Dict]:
+        """评估一批文章"""
+        prompt = self._build_ranking_prompt(articles, context)
 
         try:
             response = self._call_minimax(prompt, max_tokens=3000)
             evaluated = self._parse_evaluation_results(response, articles)
-
-            threshold = criteria.get('importance_threshold', 7)
-            filtered = [
-                article for article in evaluated
-                if article.get('score', 0) >= threshold
-            ]
-
-            filtered.sort(key=lambda x: x.get('score', 0), reverse=True)
-            return filtered
-
+            return evaluated
         except Exception as e:
-            logger.error(f"Error evaluating tech articles: {e}")
-            return articles[:5]
+            logger.error(f"Error evaluating batch ({context}): {e}")
+            # 降级：给默认分数
+            for article in articles:
+                if 'score' not in article:
+                    article['score'] = 6
+            return articles
 
-    def evaluate_github_projects(
-        self,
-        projects: List[Dict],
-        criteria: Dict
-    ) -> List[Dict]:
-        """评估GitHub项目"""
-
-        if not projects:
-            return []
-
-        prompt = self._build_github_evaluation_prompt(projects, criteria)
-
-        try:
-            response = self._call_minimax(prompt)
-            evaluated = self._parse_evaluation_results(response, projects)
-
-            threshold = criteria.get('importance_threshold', 6)
-            filtered = [
-                project for project in evaluated
-                if project.get('score', 0) >= threshold
-            ]
-
-            filtered.sort(key=lambda x: x.get('score', 0), reverse=True)
-            return filtered
-
-        except Exception as e:
-            logger.error(f"Error evaluating GitHub projects: {e}")
-            return projects[:8]
-
-    def generate_summary(
-        self,
-        all_results: Dict[str, Any]
-    ) -> str:
-        """
-        生成最终的日报摘要
-
-        Args:
-            all_results: 包含所有地区和主题的结果
-
-        Returns:
-            格式化的Markdown日报
-        """
-        prompt = f"""
-你是一个专业的AI Agent领域编辑，负责生成每日AI Agent技术博客精选。
-
-以下是今天收集到的AI Agent相关博客、框架教程和GitHub项目：
-
-{json.dumps(all_results, ensure_ascii=False, indent=2)}
-
-请生成一份简洁、专业的日报，要求：
-
-1. 使用Markdown格式
-2. 分为以下几个部分：
-   - AI Agent 官方博客与专家动态
-   - AI Agent 框架与工具
-   - GitHub Agent 开源项目
-   - 中文社区 Agent 动态
-3. 每条内容只用1-2句话概括核心内容
-4. 标注信息来源
-5. 突出与Agent架构、tool use、MCP等的关联
-6. 总长度控制在800字以内
-
-开始生成日报：
-"""
-
-        try:
-            response = self._call_minimax(prompt, max_tokens=2000)
-            return response
-
-        except Exception as e:
-            logger.error(f"Error generating summary: {e}")
-            return "生成摘要失败，请查看详细数据。"
-
-    def _build_tech_evaluation_prompt(
-        self,
-        articles: List[Dict],
-        criteria: Dict
-    ) -> str:
-        """构建科技文章评估Prompt（深度分析版）"""
+    def _build_ranking_prompt(self, articles: List[Dict], context: str) -> str:
+        """构建通用排序评估 Prompt"""
 
         articles_text = ""
         for idx, article in enumerate(articles, 1):
             articles_text += f"\n{idx}. 标题: {article.get('title', '')}\n"
-            articles_text += f"   来源: {article.get('source', '')}\n"
-            articles_text += f"   链接: {article.get('link', '')}\n"
+            source = article.get('source', '') or article.get('source_api', '')
+            if source:
+                articles_text += f"   来源: {source}\n"
+            link = article.get('link', '')
+            if link:
+                articles_text += f"   链接: {link}\n"
 
-            # 如果有完整内容，添加到prompt
+            # 正文或摘要
             if 'full_content' in article:
-                content_preview = article['full_content'][:1000]  # 前1000字
-                articles_text += f"   内容摘录:\n   {content_preview}\n"
+                articles_text += f"   内容摘录: {article['full_content'][:800]}\n"
             else:
                 summary = article.get('summary', '')
                 if summary:
-                    articles_text += f"   简介: {summary[:200]}\n"
+                    articles_text += f"   摘要: {summary[:300]}\n"
 
-        prompt = f"""
-你是AI Agent领域资深专家，负责深度评估AI Agent相关文章的价值并生成友好的推荐语。
+        prompt = f"""你是 AI Agent 领域资深专家和技术博客编辑。
 
-以下是待评估的AI科技文章：
+**当前评估板块：{context}**
 
+以下是待评估的文章列表：
 {articles_text}
 
 任务：
-1. 评估技术价值（1-10分）：创新性、实用性、影响力
-2. 生成吸引人的中文推荐语（1-2句话，拟人化、友好）
-3. 提取核心亮点（技术突破/应用场景/重要观点）
+1. 评估每篇文章与 AI Agent 领域的相关性和价值（1-10分）
+2. 将英文标题翻译为简洁的中文标题
+3. 用1句话写出推荐理由（中文，像朋友推荐给你一样自然）
 
-评估标准：
-- 优先关注：Agent架构、tool use、MCP、多智能体、框架更新
-- 降低分数：营销软文、无实质内容、与Agent无关的内容
-- 特别重视：来自LangChain、Anthropic、OpenAI等Agent领域厂商的官方博客
+评分标准（从高到低）：
+- 9-10分：直接关于 Agent 架构/框架/MCP/tool use/多智能体 的深度内容
+- 7-8分：与 Agent 生态相关（LLM 新能力、API 更新、开发工具）
+- 5-6分：泛 AI 内容，间接相关
+- 1-4分：与 Agent 无关或低质量内容
 
-返回JSON格式：
+返回JSON格式（只返回JSON，不要其他内容）：
 {{
   "evaluations": [
     {{
       "index": 1,
       "score": 9,
-      "title_cn": "中文标题（如果是英文则翻译）",
-      "highlight": "核心亮点（一句话）",
-      "recommendation": "友好的推荐语，告诉读者为什么值得读",
-      "reason": "评分理由"
+      "title_cn": "中文标题",
+      "recommendation": "一句话推荐理由"
     }}
   ]
-}}
-
-要求：
-- recommendation要拟人化、有趣，像朋友推荐一样
-- 避免官方、生硬的语言
-- 突出文章的实际价值
-
-只返回JSON，不要其他内容。
-"""
+}}"""
         return prompt
 
-    def _build_github_evaluation_prompt(
-        self,
-        projects: List[Dict],
-        criteria: Dict
-    ) -> str:
+    def _build_github_prompt(self, projects: List[Dict]) -> str:
         """构建GitHub项目评估Prompt"""
 
         projects_text = ""
         for idx, project in enumerate(projects, 1):
-            projects_text += f"\n{idx}. 名称: {project.get('name', '')}\n"
-            projects_text += f"   作者: {project.get('author', '')}\n"
+            projects_text += f"\n{idx}. {project.get('author', '')}/{project.get('name', '')}\n"
             projects_text += f"   描述: {project.get('description', '')}\n"
-            projects_text += f"   语言: {project.get('language', '')}\n"
-            projects_text += f"   Stars: {project.get('stars', 0)}\n"
+            projects_text += f"   语言: {project.get('language', '')} | Stars: {project.get('stars', 0)}\n"
 
-        prompt = f"""
-你是技术专家，评估以下GitHub项目的价值：
+        prompt = f"""你是 AI Agent 领域技术专家，评估以下 GitHub 项目与 AI Agent 的相关性和价值。
 
 {projects_text}
 
-评估标准（1-10分）：
-1. 创新性
-2. 实用价值
-3. 代码质量（根据stars/forks判断）
-4. 项目成熟度
+评分标准（1-10分）：
+- 9-10: 核心 Agent 框架/MCP server/多智能体工具
+- 7-8: Agent 生态相关（LLM 工具、RAG、向量数据库）
+- 5-6: 泛 AI/ML 项目
+- 1-4: 与 Agent 无关
 
-返回JSON格式：
+返回JSON（只返回JSON）：
 {{
   "evaluations": [
-    {{"index": 1, "score": 8, "reason": "创新的AI工具"}},
-    ...
+    {{"index": 1, "score": 9, "title_cn": "中文项目名或简述", "recommendation": "一句话推荐"}}
   ]
-}}
-"""
+}}"""
         return prompt
 
+    # ------------------------------------------------------------------
+    # 内容抓取
+    # ------------------------------------------------------------------
+    def _fetch_contents(self, articles: List[Dict]):
+        """尝试抓取文章正文"""
+        try:
+            from ..collectors.content_fetcher import ContentFetcher
+            fetcher = ContentFetcher()
+
+            for article in articles:
+                url = article.get('link', '')
+                if url:
+                    content = fetcher.fetch_article_content(url, max_length=2000)
+                    if content:
+                        article['full_content'] = content
+                        logger.info(f"Fetched content: {article.get('title', '')[:50]}")
+                    elif article.get('summary'):
+                        article['full_content'] = article['summary']
+        except Exception as e:
+            logger.error(f"Error fetching contents: {e}")
+
+    # ------------------------------------------------------------------
+    # MiniMax API 调用
+    # ------------------------------------------------------------------
     def _call_minimax(
         self,
         prompt: str,
         max_tokens: int = 1500,
-        temperature: float = 0.7
     ) -> str:
         """调用MiniMax API"""
 
@@ -260,12 +222,9 @@ class MiniMaxEvaluator:
         }
 
         payload = {
-            "model": "M2-her",  # MiniMax模型
+            "model": "M2-her",
             "messages": [
-                {
-                    "role": "user",
-                    "content": prompt
-                }
+                {"role": "user", "content": prompt}
             ],
             "tokens_to_generate": max_tokens,
         }
@@ -275,7 +234,7 @@ class MiniMaxEvaluator:
                 self.base_url,
                 headers=headers,
                 json=payload,
-                timeout=30
+                timeout=60
             )
 
             if response.status_code == 200:
@@ -290,6 +249,9 @@ class MiniMaxEvaluator:
             logger.error(f"Error calling MiniMax API: {e}")
             raise
 
+    # ------------------------------------------------------------------
+    # 解析 LLM 返回
+    # ------------------------------------------------------------------
     def _parse_evaluation_results(
         self,
         response: str,
@@ -298,7 +260,6 @@ class MiniMaxEvaluator:
         """解析评估结果并合并到原始数据"""
 
         try:
-            # 提取JSON部分
             response = response.strip()
 
             # 移除markdown代码块标记
@@ -306,22 +267,18 @@ class MiniMaxEvaluator:
                 response = response[7:]
             elif response.startswith("```"):
                 response = response[3:]
-
             if response.endswith("```"):
                 response = response[:-3]
-
             response = response.strip()
 
-            # 尝试找到JSON对象的开始和结束
+            # 找JSON
             start_idx = response.find('{')
             end_idx = response.rfind('}')
-
             if start_idx != -1 and end_idx != -1:
-                response = response[start_idx:end_idx+1]
+                response = response[start_idx:end_idx + 1]
 
             data = json.loads(response)
 
-            # 处理evaluations字段
             if isinstance(data, dict):
                 evaluations = data.get('evaluations', [])
             elif isinstance(data, list):
@@ -329,7 +286,7 @@ class MiniMaxEvaluator:
             else:
                 raise ValueError("Invalid data format")
 
-            # 合并评分和翻译到原始数据
+            # 合并到原始数据
             for eval_item in evaluations:
                 if not isinstance(eval_item, dict):
                     continue
@@ -337,31 +294,23 @@ class MiniMaxEvaluator:
                 idx = eval_item.get('index', 0) - 1
                 if 0 <= idx < len(original_items):
                     original_items[idx]['score'] = eval_item.get('score', 5)
-                    original_items[idx]['ai_reason'] = eval_item.get('reason', '')
-
-                    # 添加翻译和摘要
-                    if 'title_cn' in eval_item:
-                        original_items[idx]['title_cn'] = eval_item.get('title_cn', '')
-                    if 'summary_cn' in eval_item:
-                        original_items[idx]['summary_cn'] = eval_item.get('summary_cn', '')
-
-                    # 添加新字段：核心亮点和推荐语
+                    if 'title_cn' in eval_item and eval_item['title_cn']:
+                        original_items[idx]['title_cn'] = eval_item['title_cn']
+                    if 'recommendation' in eval_item and eval_item['recommendation']:
+                        original_items[idx]['recommendation'] = eval_item['recommendation']
+                    if 'reason' in eval_item:
+                        original_items[idx]['ai_reason'] = eval_item['reason']
                     if 'highlight' in eval_item:
-                        original_items[idx]['highlight'] = eval_item.get('highlight', '')
-                    if 'recommendation' in eval_item:
-                        original_items[idx]['recommendation'] = eval_item.get('recommendation', '')
+                        original_items[idx]['highlight'] = eval_item['highlight']
 
             return original_items
 
         except Exception as e:
             logger.error(f"Error parsing evaluation results: {e}")
-            logger.debug(f"Response was: {response[:200]}")
+            logger.debug(f"Response was: {response[:200] if response else 'empty'}")
 
-            # 解析失败，给所有项目默认分数
+            # 解析失败，给默认分数
             for item in original_items:
                 if 'score' not in item:
-                    item['score'] = 6  # 默认及格分
-                if 'ai_reason' not in item:
-                    item['ai_reason'] = 'AI evaluation failed'
-
+                    item['score'] = 6
             return original_items

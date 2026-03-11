@@ -299,11 +299,11 @@ class NewsOrchestrator:
                 report += "\n"
 
                 if title_cn:
-                    report += f"   {title_cn}\n"
-                if description and description != title_cn:
-                    report += f"   {description}\n"
+                    report += f"   {self._truncate(title_cn, 40)}\n"
+                elif description:
+                    report += f"   {self._truncate(description, 80)}\n"
                 if recommendation:
-                    report += f"   > {recommendation}\n"
+                    report += f"   > {self._truncate(recommendation, 50)}\n"
                 report += f"   Stars: {stars_display}"
                 if language:
                     report += f" | {language}"
@@ -357,20 +357,15 @@ class NewsOrchestrator:
             source = article.get('source', '')
             author = article.get('author', '')
             platform = article.get('platform', '') or article.get('source', '')
-            summary = article.get('summary', '')
 
-            # 标题：优先用中文标题
-            display_title = title_cn if title_cn else title_original
+            # 标题：优先中文，截断保护
+            display_title = self._truncate(title_cn or title_original, 60)
             text += f"**{idx}. {display_title}**"
             if show_score and score:
                 text += f" `{score}/10`"
             text += "\n"
 
-            # 如果有中文标题且和原标题不同，显示原标题
-            if title_cn and title_cn != title_original and title_original:
-                text += f"   _({title_original})_\n"
-
-            # 来源 / 平台
+            # 来源信息（一行）
             meta_parts = []
             if show_source and source:
                 meta_parts.append(f"来源：{source}")
@@ -381,17 +376,23 @@ class NewsOrchestrator:
             if meta_parts:
                 text += f"   {' | '.join(meta_parts)}\n"
 
-            # 推荐语（LLM 生成）
+            # 推荐语（严格截断）
             if recommendation:
-                text += f"   > {recommendation}\n"
-            elif summary:
-                # 没有推荐语时用摘要兜底
-                display_summary = summary[:120] + '...' if len(summary) > 120 else summary
-                text += f"   {display_summary}\n"
+                rec = self._truncate(recommendation, 60)
+                text += f"   > {rec}\n"
 
+            # 链接
             if link:
-                text += f"   {link}\n\n"
-            else:
-                text += "\n"
+                text += f"   {link}\n"
 
+            text += "\n"
+
+        return text
+
+    @staticmethod
+    def _truncate(text: str, max_len: int) -> str:
+        """截断文本，去除换行"""
+        text = text.replace('\n', ' ').replace('\r', '').strip()
+        if len(text) > max_len:
+            return text[:max_len] + '...'
         return text

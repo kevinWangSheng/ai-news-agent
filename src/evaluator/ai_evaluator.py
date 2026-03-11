@@ -119,13 +119,13 @@ class MiniMaxEvaluator:
             if link:
                 articles_text += f"   链接: {link}\n"
 
-            # 正文或摘要
+            # 正文或摘要（严格限制长度）
             if 'full_content' in article:
-                articles_text += f"   内容摘录: {article['full_content'][:800]}\n"
+                articles_text += f"   内容摘录: {article['full_content'][:500]}\n"
             else:
                 summary = article.get('summary', '')
                 if summary:
-                    articles_text += f"   摘要: {summary[:300]}\n"
+                    articles_text += f"   摘要: {summary[:150]}\n"
 
         prompt = f"""你是 AI Agent 领域资深专家和技术博客编辑。
 
@@ -136,8 +136,8 @@ class MiniMaxEvaluator:
 
 任务：
 1. 评估每篇文章与 AI Agent 领域的相关性和价值（1-10分）
-2. 将英文标题翻译为简洁的中文标题
-3. 用1句话写出推荐理由（中文，像朋友推荐给你一样自然）
+2. 将英文标题翻译为简洁的中文标题（不超过25个字，中文标题保持原样）
+3. 写一句简短推荐语（不超过30个字，像朋友推荐一样自然）
 
 评分标准（从高到低）：
 - 9-10分：直接关于 Agent 架构/框架/MCP/tool use/多智能体 的深度内容
@@ -145,14 +145,19 @@ class MiniMaxEvaluator:
 - 5-6分：泛 AI 内容，间接相关
 - 1-4分：与 Agent 无关或低质量内容
 
-返回JSON格式（只返回JSON，不要其他内容）：
+严格要求：
+- title_cn 不超过25个字
+- recommendation 不超过30个字
+- 只返回JSON，不要任何其他内容
+
+返回JSON格式：
 {{
   "evaluations": [
     {{
       "index": 1,
       "score": 9,
-      "title_cn": "中文标题",
-      "recommendation": "一句话推荐理由"
+      "title_cn": "简短中文标题",
+      "recommendation": "简短推荐语（不超过30字）"
     }}
   ]
 }}"""
@@ -177,10 +182,15 @@ class MiniMaxEvaluator:
 - 5-6: 泛 AI/ML 项目
 - 1-4: 与 Agent 无关
 
-返回JSON（只返回JSON）：
+严格要求：
+- title_cn 不超过15个字
+- recommendation 不超过25个字
+- 只返回JSON
+
+返回JSON：
 {{
   "evaluations": [
-    {{"index": 1, "score": 9, "title_cn": "中文项目名或简述", "recommendation": "一句话推荐"}}
+    {{"index": 1, "score": 9, "title_cn": "简短中文描述", "recommendation": "简短推荐（不超过25字）"}}
   ]
 }}"""
         return prompt

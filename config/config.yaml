@@ -100,6 +100,59 @@ tech_sources:
       type: "rss"
       priority: "medium"
 
+# ============================================================
+# Twitter/X 配置（新增）
+# ============================================================
+twitter:
+  # 搜索时间窗口（天）
+  days: 3
+  # 每个分类最大条目数
+  max_items_per_category: 10
+
+  # AI Agent 领域 KOL 列表（Twitter handle）
+  kol_accounts:
+    # AI 公司领袖
+    - "sama"              # Sam Altman - OpenAI CEO
+    - "ylecun"            # Yann LeCun - Meta AI
+    - "AndrewYNg"         # Andrew Ng
+    - "kaboroevich"       # Andrej Karpathy
+    # Agent 框架创始人
+    - "hwchase17"         # Harrison Chase - LangChain
+    - "joaomdmoura"       # João Moura - CrewAI
+    - "jerryjliu0"        # Jerry Liu - LlamaIndex
+    # AI Agent 领域活跃开发者/研究者
+    - "alexalbert__"      # Alex Albert - Anthropic
+    - "DrJimFan"          # Jim Fan - NVIDIA
+    - "bindureddy"        # Bindu Reddy - Abacus.AI
+    - "swyx"              # Swyx - AI Engineer
+    - "simonw"            # Simon Willison
+    # 中文 AI 圈
+    - "dotey"             # 宝玉
+    - "9hills"            # 九山
+
+  # KOL 话题补充查询
+  kol_topic_queries:
+    - "AI agent framework new release announcement"
+    - "MCP protocol Claude tool use update"
+    - "multi-agent system breakthrough demo"
+    - "Claude Code Cursor AI coding agent"
+
+  # 热门讨论查询
+  trending_queries:
+    - "AI agent best practices production deployment"
+    - "LangChain CrewAI AutoGen comparison review"
+    - "Claude Sonnet Opus agent coding capability"
+    - "AI agent memory context window breakthrough"
+    - "open source AI agent tool impressive demo"
+    - "AI coding agent benchmark evaluation results"
+
+  # 新发布/新工具查询
+  release_queries:
+    - "just released launched new AI agent tool"
+    - "open source AI agent framework v2 v3 release"
+    - "new MCP server plugin released GitHub"
+    - "AI agent SDK library just shipped"
+
 # 搜索API配置（Tavily + Exa）
 search_apis:
   tavily:
@@ -193,6 +246,31 @@ github:
     - "mcp-server"
     - "multi-agent"
   max_topic_searches: 4
+
+  # Star 飙升项目（新增）
+  rising_stars:
+    days: 7
+    min_stars: 50
+    max_items: 10
+    queries:
+      - "ai agent"
+      - "mcp server"
+      - "llm tool"
+      - "multi-agent"
+      - "agentic workflow"
+      - "claude code"
+
+  # 新项目发现（新增）
+  new_projects:
+    days: 14
+    min_stars: 10
+    max_items: 8
+    queries:
+      - "ai agent framework"
+      - "mcp server tool"
+      - "llm agent"
+      - "agentic workflow"
+      - "ai coding agent"
 
 # AI评估配置（Agent 领域专家视角）
 evaluation:

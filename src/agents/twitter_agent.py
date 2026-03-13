@@ -112,7 +112,8 @@ class TwitterAgent:
 
         all_tweets = []
 
-        # 分批查询 KOL（每批 5 个账号，用 Exa 的 include_domains 限定 x.com）
+        # 分批查询 KOL（每批 5 个账号）
+        # 注意：Exa tweet category 不支持 include_domains，category 本身已限定推文索引
         batch_size = 5
         for i in range(0, len(self.kol_accounts), batch_size):
             batch = self.kol_accounts[i:i + batch_size]
@@ -127,7 +128,6 @@ class TwitterAgent:
                     num_results=8,
                     category="tweet",
                     days=self.days,
-                    include_domains=["x.com", "twitter.com"],
                 )
                 for r in results:
                     r['source_type'] = 'kol_tweet'
@@ -150,7 +150,6 @@ class TwitterAgent:
                     num_results=5,
                     category="tweet",
                     days=self.days,
-                    include_domains=["x.com", "twitter.com"],
                 )
                 for r in results:
                     r['source_type'] = 'kol_tweet'
@@ -182,7 +181,6 @@ class TwitterAgent:
                     num_results=5,
                     category="tweet",
                     days=self.days,
-                    include_domains=["x.com", "twitter.com"],
                 )
                 for r in results:
                     r['source_type'] = 'trending_discussion'
@@ -212,7 +210,6 @@ class TwitterAgent:
                     num_results=5,
                     category="tweet",
                     days=self.days,
-                    include_domains=["x.com", "twitter.com"],
                 )
                 for r in results:
                     r['source_type'] = 'new_release'

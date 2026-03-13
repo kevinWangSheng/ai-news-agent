@@ -20,7 +20,7 @@ class GitHubAgent:
         self.config = config
         self.collector = NewsCollector()
         self.github_config = config.get('github', {})
-        self.github_token = os.getenv('GITHUB_TOKEN')
+        self.github_token = os.getenv('GH_TOKEN') or os.getenv('GITHUB_TOKEN')
 
     async def collect(self) -> Dict[str, List[Dict]]:
         """搜集GitHub热门项目"""

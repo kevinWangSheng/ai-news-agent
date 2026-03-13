@@ -177,9 +177,9 @@ class GitHubAgent:
         """调用 GitHub Search API"""
         import requests
 
-        headers = {}
+        headers = {'Accept': 'application/vnd.github.v3+json'}
         if self.github_token:
-            headers['Authorization'] = f'token {self.github_token}'
+            headers['Authorization'] = f'Bearer {self.github_token}'
 
         url = "https://api.github.com/search/repositories"
         params = {

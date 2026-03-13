@@ -157,9 +157,9 @@ class NewsCollector:
             max_items: 最大结果数
         """
         try:
-            headers = {}
+            headers = {'Accept': 'application/vnd.github.v3+json'}
             if token:
-                headers['Authorization'] = f'token {token}'
+                headers['Authorization'] = f'Bearer {token}'
 
             url = "https://api.github.com/search/repositories"
 

@@ -2,13 +2,18 @@
 
 # AI Agent 科技资讯源
 tech_sources:
-  # 时间范围设置
+  # 时间范围设置 — 专家博客更新较慢，保留 30 天窗口；时效性由 breaking_news 保证
   time_window_days: 30
 
   # 官方博客（优先级最高）- 聚焦 Agent 相关厂商
+  # 每个源支持 fallback_urls: 首选 URL 失败时按顺序尝试
   official_blogs:
+    # ===== Tier 1 核心 AI 实验室 =====
     - name: "OpenAI Blog"
-      url: "https://openai.com/blog/rss.xml"
+      url: "https://openai.com/news/rss.xml"  # 2024 年后的正式 feed
+      fallback_urls:
+        - "https://openai.com/blog/rss.xml"
+        - "https://openai.com/news/rss/"
       type: "rss"
       priority: "critical"
 
@@ -25,27 +30,81 @@ tech_sources:
       max_items: 20
 
     - name: "Google AI Blog"
-      url: "https://ai.googleblog.com/feeds/posts/default"
+      url: "https://blog.google/technology/ai/rss/"
+      fallback_urls:
+        - "https://ai.googleblog.com/feeds/posts/default"
       type: "rss"
       priority: "critical"
 
+    - name: "Google DeepMind"
+      url: "https://deepmind.google/blog/rss.xml"
+      fallback_urls:
+        - "https://deepmind.google/discover/blog/"
+      type: "rss"
+      priority: "critical"
+
+    - name: "Meta AI Blog"
+      url: "https://ai.meta.com/blog/"
+      type: "web"
+      priority: "critical"
+      max_items: 15
+
+    - name: "xAI News"
+      url: "https://x.ai/news"
+      type: "web"
+      priority: "critical"
+      max_items: 10
+
+    - name: "Mistral News"
+      url: "https://mistral.ai/news"
+      type: "web"
+      priority: "high"
+      max_items: 15
+
+    # 注：DeepSeek / Perplexity 官方站无稳定 RSS 且 web 页面 JS 渲染，
+    # 依赖 breaking_news 通过 Exa site: 查询覆盖
+    - name: "Qwen Blog"
+      url: "https://qwen.ai/blog"
+      fallback_urls:
+        - "https://qwenlm.github.io/"
+      type: "web"
+      priority: "high"
+      max_items: 15
+
+    - name: "Cohere Blog"
+      url: "https://cohere.com/blog"
+      type: "web"
+      priority: "medium"
+      max_items: 10
+
+    # ===== Tier 2 Agent 生态 =====
     - name: "HuggingFace Blog"
       url: "https://huggingface.co/blog/feed.xml"
       type: "rss"
       priority: "high"
 
     - name: "LangChain Blog"
-      url: "https://blog.langchain.dev/rss/"
-      type: "rss"
+      url: "https://www.langchain.com/blog"
+      type: "web"
       priority: "critical"
+      max_items: 20
 
-    - name: "AutoGen Blog"
-      url: "https://microsoft.github.io/autogen/blog/feed.xml"
+    - name: "LlamaIndex Blog"
+      url: "https://medium.com/feed/llamaindex-blog"
+      fallback_urls:
+        - "https://www.llamaindex.ai/blog"
       type: "rss"
       priority: "high"
 
+    - name: "AutoGen / AG2"
+      url: "https://docs.ag2.ai/latest/docs/blog/"
+      type: "web"
+      priority: "high"
+      max_items: 10
+
   # 知名AI研究者和博主
   expert_blogs:
+    # ===== 既有 =====
     - name: "Simon Willison's Weblog"
       url: "https://simonwillison.net/atom/everything/"
       type: "rss"
@@ -63,10 +122,64 @@ tech_sources:
       priority: "high"
 
     - name: "Lilian Weng"
-      url: "https://lilianweng.github.io/feed.xml"
+      url: "https://lilianweng.github.io/index.xml"
       type: "rss"
       priority: "high"
       tags: ["agent", "llm", "research"]
+
+    # ===== Agent / LLM 实战派 =====
+    - name: "Eugene Yan"
+      url: "https://eugeneyan.com/rss/"
+      type: "rss"
+      priority: "high"
+      tags: ["agent", "llm", "mlops"]
+
+    - name: "Chip Huyen"
+      url: "https://huyenchip.com/feed.xml"
+      type: "rss"
+      priority: "high"
+      tags: ["agent", "llm", "systems"]
+
+    - name: "Hamel Husain"
+      url: "https://hamel.dev/index.xml"
+      type: "rss"
+      priority: "high"
+      tags: ["evals", "agent", "llm"]
+
+    - name: "Philipp Schmid"
+      url: "https://www.philschmid.de/rss"
+      type: "rss"
+      priority: "medium"
+      tags: ["llm", "agent", "huggingface"]
+
+    - name: "Latent Space (swyx)"
+      url: "https://www.latent.space/feed"
+      type: "rss"
+      priority: "high"
+      tags: ["ai-engineer", "agent", "podcast"]
+
+  # AI 新闻聚合源（已帮你筛过的二次源）
+  aggregator_sources:
+    - name: "The Batch (DeepLearning.AI)"
+      url: "https://www.deeplearning.ai/the-batch/"
+      type: "web"
+      priority: "medium"
+      max_items: 10
+
+    - name: "Import AI (Jack Clark)"
+      url: "https://jack-clark.net/feed/"
+      type: "rss"
+      priority: "medium"
+
+    - name: "AINews (smol.ai)"
+      url: "https://buttondown.email/ainews/rss"
+      type: "rss"
+      priority: "medium"
+
+    - name: "Latent Space Newsletter"
+      url: "https://www.latent.space/feed"
+      type: "rss"
+      priority: "medium"
 
   # AI研究论文
   research_sources:
@@ -152,6 +265,56 @@ twitter:
     - "open source AI agent framework v2 v3 release"
     - "new MCP server plugin released GitHub"
     - "AI agent SDK library just shipped"
+
+# ============================================================
+# Breaking News 配置（最重要 — 专抓当日发布内容）
+# ============================================================
+breaking_news:
+  enabled: true
+  days: 2                 # 搜索最近 N 天（默认 2 天缓冲，避开时区误差）
+  max_items_per_query: 8  # 每个查询返回数量
+  total_max_items: 25     # 整个板块最终展示数量上限
+
+  # 方案 1：站点限定的时效搜索（Exa 按 start_published_date 过滤）
+  site_queries:
+    - site: "openai.com"
+      query: "OpenAI"
+    - site: "anthropic.com"
+      query: "Anthropic announcement release"
+    - site: "claude.com"
+      query: "Claude release update"
+    - site: "deepmind.google"
+      query: "DeepMind release"
+    - site: "blog.google"
+      query: "Google AI Gemini agent"
+    - site: "ai.meta.com"
+      query: "Meta AI model release"
+    - site: "x.ai"
+      query: "xAI Grok release"
+    - site: "mistral.ai"
+      query: "Mistral release"
+    - site: "deepseek.com"
+      query: "DeepSeek release"
+    - site: "perplexity.ai"
+      query: "Perplexity release"
+    - site: "langchain.com"
+      query: "LangChain LangGraph release"
+    - site: "llamaindex.ai"
+      query: "LlamaIndex release"
+    - site: "huggingface.co"
+      query: "HuggingFace release agent model"
+
+  # 方案 2：泛关键词时效搜索（跨源抓取突发新闻）
+  keyword_queries:
+    - "OpenAI announces released new"
+    - "Anthropic Claude launches unveils"
+    - "new AI agent framework released today"
+    - "MCP server protocol update announcement"
+    - "LLM model launch benchmark today"
+    - "AI Agent breakthrough release"
+
+  # 方案 3：官方源'今日窗口'前置拉取（走 RSS，Breaking 模式下窗口=1天）
+  prioritize_official_rss: true
 
 # 搜索API配置（Tavily + Exa）
 search_apis:

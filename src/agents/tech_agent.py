@@ -5,8 +5,10 @@ AI Agent科技资讯Agent
 """
 
 import logging
-from typing import List, Dict
+import re
+from typing import Any, Dict, List
 from datetime import datetime, timedelta
+from urllib.parse import urljoin, urlparse
 from ..collectors.news_collector import NewsCollector
 
 logger = logging.getLogger(__name__)
@@ -28,90 +30,98 @@ class TechNewsAgent:
         results = {
             'official_blogs': [],      # 官方博客
             'expert_blogs': [],        # 专家博客
+            'aggregator_blogs': [],    # AI 新闻聚合源
             'research_papers': [],     # 研究论文
             'community': [],           # 社区讨论
         }
 
+        # 每源统计（便于诊断'哪个源没抓到'）
+        source_stats: List[Dict[str, Any]] = []
+
         # 计算时间窗口
         cutoff_date = datetime.now() - timedelta(days=self.time_window_days)
 
-        # 1. 搜集官方博客（优先级最高）
-        official_blogs = self.tech_sources.get('official_blogs', [])
-        for blog in official_blogs:
-            articles = await self._collect_blog(blog, cutoff_date, 'official_blogs')
-            results['official_blogs'].extend(articles)
+        # 1. 官方博客（优先级最高）
+        for blog in self.tech_sources.get('official_blogs', []) or []:
+            items = await self._collect_blog(blog, cutoff_date, 'official_blogs')
+            results['official_blogs'].extend(items)
+            source_stats.append({'name': blog.get('name'), 'category': 'official', 'count': len(items)})
 
-        # 2. 搜集专家博客
-        expert_blogs = self.tech_sources.get('expert_blogs', [])
-        for blog in expert_blogs:
-            articles = await self._collect_blog(blog, cutoff_date, 'expert_blogs')
-            results['expert_blogs'].extend(articles)
+        # 2. 专家博客
+        for blog in self.tech_sources.get('expert_blogs', []) or []:
+            items = await self._collect_blog(blog, cutoff_date, 'expert_blogs')
+            results['expert_blogs'].extend(items)
+            source_stats.append({'name': blog.get('name'), 'category': 'expert', 'count': len(items)})
 
-        # 3. 搜集AI研究论文
-        research_sources = self.tech_sources.get('research_sources', [])
-        for source in research_sources:
-            articles = await self._collect_research(source, cutoff_date)
-            results['research_papers'].extend(articles)
+        # 2.5 聚合源（The Batch / Import AI / AINews）
+        for blog in self.tech_sources.get('aggregator_sources', []) or []:
+            items = await self._collect_blog(blog, cutoff_date, 'aggregator_blogs')
+            results['aggregator_blogs'].extend(items)
+            source_stats.append({'name': blog.get('name'), 'category': 'aggregator', 'count': len(items)})
 
-        # 4. 搜集社区热门讨论
-        community_sources = self.tech_sources.get('community_sources', [])
-        for source in community_sources:
-            articles = await self._collect_community(source, cutoff_date)
-            results['community'].extend(articles)
+        # 3. 研究论文
+        for source in self.tech_sources.get('research_sources', []) or []:
+            items = await self._collect_research(source, cutoff_date)
+            results['research_papers'].extend(items)
+            source_stats.append({'name': source.get('name'), 'category': 'research', 'count': len(items)})
+
+        # 4. 社区
+        for source in self.tech_sources.get('community_sources', []) or []:
+            items = await self._collect_community(source, cutoff_date)
+            results['community'].extend(items)
+            source_stats.append({'name': source.get('name'), 'category': 'community', 'count': len(items)})
 
         # 统计
-        total = sum(len(articles) for articles in results.values())
+        total = sum(len(v) for v in results.values())
         logger.info(f"Tech Agent: Collected {total} total articles")
-        logger.info(f"  - Official blogs: {len(results['official_blogs'])}")
-        logger.info(f"  - Expert blogs: {len(results['expert_blogs'])}")
-        logger.info(f"  - Research papers: {len(results['research_papers'])}")
-        logger.info(f"  - Community: {len(results['community'])}")
+        for category in ('official_blogs', 'expert_blogs', 'aggregator_blogs', 'research_papers', 'community'):
+            logger.info(f"  - {category}: {len(results[category])}")
+
+        # 打印每个源的采集条数（便于发现静默失败）
+        empty_sources = [s['name'] for s in source_stats if s['count'] == 0]
+        if empty_sources:
+            logger.warning(f"Tech Agent: 以下源采集到 0 条，建议检查: {empty_sources}")
 
         return results
 
     async def _collect_blog(self, blog: Dict, cutoff_date: datetime, category: str) -> List[Dict]:
-        """搜集单个博客"""
+        """搜集单个博客 — 支持 fallback_urls 降级"""
         blog_name = blog.get('name')
-        blog_url = blog.get('url')
         blog_type = blog.get('type')
         priority = blog.get('priority', 'medium')
         max_items = blog.get('max_items', 20)
 
-        try:
-            if blog_type == 'rss':
-                logger.info(f"Fetching {blog_name} RSS...")
-                articles = self.collector.collect_rss_feed(blog_url, max_items=max_items)
+        # 构造 URL 候选列表：主 URL 先试，失败再按序降级
+        url_candidates: List[str] = []
+        if blog.get('url'):
+            url_candidates.append(blog['url'])
+        url_candidates.extend(blog.get('fallback_urls', []) or [])
 
-                # 过滤时间
-                filtered = self._filter_by_date(articles, cutoff_date)
+        for idx, url in enumerate(url_candidates):
+            try:
+                if blog_type == 'rss':
+                    logger.info(f"Fetching {blog_name} RSS ({'primary' if idx == 0 else f'fallback #{idx}'}): {url}")
+                    articles = self.collector.collect_rss_feed(url, max_items=max_items)
+                    articles = self._filter_by_date(articles, cutoff_date)
+                elif blog_type == 'web':
+                    logger.info(f"Scraping {blog_name} ({'primary' if idx == 0 else f'fallback #{idx}'}): {url}")
+                    articles = await self._scrape_web_blog(url, blog_name, max_items)
+                else:
+                    logger.warning(f"Unknown blog type '{blog_type}' for {blog_name}")
+                    return []
 
-                for article in filtered:
-                    article['source_type'] = category
-                    article['source'] = blog_name
-                    article['priority'] = priority
-
-                logger.info(f"Collected {len(filtered)} articles from {blog_name} (from last {self.time_window_days} days)")
-                return filtered
-
-            elif blog_type == 'web':
-                # 网页抓取（适用于Anthropic等）
-                logger.info(f"Scraping {blog_name} website...")
-                articles = await self._scrape_web_blog(blog_url, blog_name, max_items)
-
-                for article in articles:
-                    article['source_type'] = category
-                    article['source'] = blog_name
-                    article['priority'] = priority
-
-                logger.info(f"Collected {len(articles)} articles from {blog_name}")
-                logger.info(f"  Category: {category}, Priority: {priority}")
                 if articles:
-                    logger.info(f"  First article: {articles[0].get('title', '')[:50]}")
-                    logger.info(f"  Source type: {articles[0].get('source_type')}")
-                return articles
+                    for a in articles:
+                        a['source_type'] = category
+                        a['source'] = blog_name
+                        a['priority'] = priority
+                    logger.info(f"  → {blog_name}: {len(articles)} 条")
+                    return articles
+                else:
+                    logger.info(f"  → {blog_name}: 0 条 (URL #{idx})，{'尝试下一个 URL' if idx < len(url_candidates) - 1 else '全部 URL 均为空'}")
 
-        except Exception as e:
-            logger.error(f"Error collecting from {blog_name}: {e}")
+            except Exception as e:
+                logger.error(f"{blog_name} fetch failed at {url}: {e}")
 
         return []
 
@@ -191,7 +201,7 @@ class TechNewsAgent:
                                     break
 
             # 处理Claude Blog页面
-            elif 'claude.com/blog' in url:
+            elif 'claude.com/blog' in url or 'claude.ai/blog' in url:
                 # 查找所有博客链接
                 links = soup.find_all('a', href=True)
 
@@ -232,12 +242,103 @@ class TechNewsAgent:
                                 if len(articles) >= max_items:
                                     break
 
+            # 通用抓取：对未显式适配的官方博客做链接提取
+            else:
+                articles = self._extract_generic_blog_links(
+                    soup=soup, base_url=url, source_name=source_name, max_items=max_items
+                )
+
             logger.info(f"Scraped {len(articles)} articles from {source_name}")
             return articles[:max_items]
 
         except Exception as e:
             logger.error(f"Error scraping {url}: {e}")
             return []
+
+    def _extract_generic_blog_links(
+        self,
+        soup: Any,
+        base_url: str,
+        source_name: str,
+        max_items: int,
+    ) -> List[Dict]:
+        """
+        通用博客链接提取：适用于 Meta AI / xAI / Mistral / Cohere / Perplexity 等未显式适配的官方博客。
+
+        策略：
+          1. 只保留与 base_url 同域的链接
+          2. 路径包含 /blog/ /news/ /post/ /article/ /hub/ 任一即视为博文
+          3. 用链接文本作为标题，过滤太短（< 15 字）和导航词
+          4. 按出现顺序保留前 max_items 条，去重
+        """
+        parsed_base = urlparse(base_url)
+        base_host = parsed_base.netloc.replace('www.', '')
+
+        blog_patterns = re.compile(
+            r'/(blog|news|post|posts|article|articles|hub|research|announcement|announcements)/',
+            re.IGNORECASE,
+        )
+        nav_words = {
+            'blog', 'news', 'home', 'next', 'previous', 'more', 'read more',
+            'view all', 'see all', 'about', 'contact', 'careers', 'pricing',
+            'products', 'product', 'docs', 'documentation', 'sign in', 'sign up',
+        }
+
+        seen_urls = set()
+        articles: List[Dict] = []
+
+        for link in soup.find_all('a', href=True):
+            href = link.get('href', '').strip()
+            if not href or href.startswith('#') or href.startswith('mailto:'):
+                continue
+
+            full_url = urljoin(base_url, href)
+            parsed = urlparse(full_url)
+            host = parsed.netloc.replace('www.', '')
+            if base_host and base_host not in host:
+                continue
+
+            if not blog_patterns.search(parsed.path or ''):
+                continue
+
+            # 排除 index / 列表页本身
+            if parsed.path.rstrip('/').endswith(('/blog', '/news', '/posts', '/hub')):
+                continue
+
+            if full_url in seen_urls:
+                continue
+            seen_urls.add(full_url)
+
+            # 标题提取
+            title = link.get_text(strip=True)
+            # 子元素可能有更丰富的标题（<h2>, <h3>）
+            heading = link.find(['h1', 'h2', 'h3', 'h4'])
+            if heading:
+                h_text = heading.get_text(strip=True)
+                if h_text and len(h_text) > len(title):
+                    title = h_text
+
+            # 清理：移除前后日期，去多余空格
+            title = re.sub(r'[A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}', '', title).strip()
+            title = re.sub(r'\s+', ' ', title)
+
+            if len(title) < 15:
+                continue
+            if title.lower() in nav_words:
+                continue
+
+            articles.append({
+                'title': title[:120],
+                'link': full_url,
+                'source': source_name,
+                'published': '',
+                'summary': '',
+            })
+
+            if len(articles) >= max_items:
+                break
+
+        return articles
 
     async def _collect_research(self, source: Dict, cutoff_date: datetime) -> List[Dict]:
         """搜集研究论文"""

@@ -170,9 +170,9 @@ class AIContentAgent:
             results = self.collector.search_all(
                 query=query,
                 max_per_api=5,
-                category="tweet",
                 days=days,
                 exa_only=True,
+                is_tweet_search=True,
             )
             for r in results:
                 r['source_type'] = 'agent_twitter'

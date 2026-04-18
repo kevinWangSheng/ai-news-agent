@@ -102,40 +102,51 @@ class NewsCollector:
     ) -> List[Dict]:
         """
         获取GitHub Trending项目
+        使用 GitHub Search API 按 star 增长排序模拟 trending
 
         Args:
             language: 编程语言 (python, typescript等)
             since: 时间范围 (daily, weekly, monthly)
         """
         try:
-            # 使用GitHub非官方API获取Trending
-            url = f"https://api.gitterapp.com/repositories"
-            params = {
-                "since": since,
-            }
-            if language:
-                params["language"] = language
+            from datetime import datetime, timedelta
 
-            response = self.session.get(url, params=params, timeout=10)
+            since_days = {"daily": 1, "weekly": 7, "monthly": 30}.get(since, 1)
+            date_threshold = (datetime.now() - timedelta(days=since_days)).strftime('%Y-%m-%d')
+
+            lang_query = f"language:{language}" if language else ""
+            search_query = f"stars:>50 pushed:>{date_threshold} {lang_query}".strip()
+
+            url = "https://api.github.com/search/repositories"
+            params = {
+                'q': search_query,
+                'sort': 'stars',
+                'order': 'desc',
+                'per_page': 10
+            }
+
+            response = self.session.get(url, params=params, timeout=15)
 
             if response.status_code == 200:
                 data = response.json()
                 results = []
 
-                for repo in data[:10]:
+                for repo in data.get('items', []):
                     project = {
                         'name': repo.get('name', ''),
-                        'author': repo.get('author', ''),
-                        'url': repo.get('url', ''),
+                        'author': repo.get('owner', {}).get('login', ''),
+                        'url': repo.get('html_url', ''),
                         'description': repo.get('description', ''),
                         'language': repo.get('language', ''),
-                        'stars': repo.get('stars', 0),
-                        'forks': repo.get('forks', 0),
-                        'stars_today': repo.get('currentPeriodStars', 0)
+                        'stars': repo.get('stargazers_count', 0),
+                        'forks': repo.get('forks_count', 0),
+                        'stars_today': 0,
                     }
                     results.append(project)
 
                 return results
+            else:
+                logger.error(f"GitHub trending search failed: {response.status_code}")
 
         except Exception as e:
             logger.error(f"Error fetching GitHub trending: {e}")

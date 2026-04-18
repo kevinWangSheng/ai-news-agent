@@ -174,8 +174,9 @@ class GitHubAgent:
         order: str = "desc",
         max_items: int = 10
     ) -> List[Dict]:
-        """调用 GitHub Search API"""
+        """调用 GitHub Search API（无 token 也可用，有限额）"""
         import requests
+        import time
 
         headers = {'Accept': 'application/vnd.github.v3+json'}
         if self.github_token:
@@ -190,7 +191,7 @@ class GitHubAgent:
         }
 
         try:
-            response = requests.get(url, params=params, headers=headers, timeout=10)
+            response = requests.get(url, params=params, headers=headers, timeout=15)
             if response.status_code == 200:
                 data = response.json()
                 results = []
@@ -208,6 +209,32 @@ class GitHubAgent:
                     }
                     results.append(project)
                 return results
+            elif response.status_code == 401 or response.status_code == 403:
+                if self.github_token:
+                    logger.warning(f"GitHub token may be expired (HTTP {response.status_code}), retrying without token...")
+                    headers_no_token = {'Accept': 'application/vnd.github.v3+json'}
+                    time.sleep(1)
+                    response2 = requests.get(url, params=params, headers=headers_no_token, timeout=15)
+                    if response2.status_code == 200:
+                        data = response2.json()
+                        results = []
+                        for repo in data.get('items', []):
+                            project = {
+                                'name': repo['name'],
+                                'author': repo['owner']['login'],
+                                'url': repo['html_url'],
+                                'description': repo.get('description', ''),
+                                'language': repo.get('language', ''),
+                                'stars': repo['stargazers_count'],
+                                'forks': repo['forks_count'],
+                                'updated_at': repo['updated_at'],
+                                'created_at': repo.get('created_at', ''),
+                            }
+                            results.append(project)
+                        return results
+                    logger.error(f"GitHub API error without token: {response2.status_code}")
+                else:
+                    logger.error(f"GitHub API error: {response.status_code} - rate limited or auth issue")
             else:
                 logger.error(f"GitHub API error: {response.status_code}")
         except Exception as e:

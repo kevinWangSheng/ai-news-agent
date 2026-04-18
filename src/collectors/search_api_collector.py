@@ -49,7 +49,7 @@ class SearchAPICollector:
         self,
         query: str,
         search_depth: str = "basic",
-        topic: str = "general",
+        topic: str = "news",
         max_results: int = 5,
         days: int = 7,
         include_domains: List[str] = None,
@@ -79,11 +79,8 @@ class SearchAPICollector:
                 'max_results': max_results,
             }
 
-            if days:
-                kwargs['time_range'] = f"{days}d" if days <= 7 else None
-                if days > 7:
-                    start = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
-                    kwargs['start_date'] = start
+            if days and days <= 7:
+                kwargs['time_range'] = f"{days}d"
 
             if include_domains:
                 kwargs['include_domains'] = include_domains
@@ -103,6 +100,9 @@ class SearchAPICollector:
             logger.error(f"Tavily search error for '{query[:50]}': {e}")
             return []
 
+    VALID_EXA_CATEGORIES = {"company", "research paper", "news", "pdf",
+                            "personal site", "financial report", "people"}
+
     def search_exa(
         self,
         query: str,
@@ -110,7 +110,8 @@ class SearchAPICollector:
         category: Optional[str] = None,
         days: int = 7,
         include_domains: List[str] = None,
-        exclude_domains: List[str] = None
+        exclude_domains: List[str] = None,
+        is_tweet_search: bool = False,
     ) -> List[Dict]:
         """
         Exa搜索
@@ -118,16 +119,29 @@ class SearchAPICollector:
         Args:
             query: 搜索关键词
             num_results: 最大结果数
-            category: "tweet", "research paper", "blog post", "news", "company", "pdf"
+            category: "company", "research paper", "news", "pdf",
+                      "personal site", "financial report", "people"
             days: 搜索最近N天
             include_domains: 限定域名
             exclude_domains: 排除域名
+            is_tweet_search: 是否搜索 Twitter/X 内容（自动限定 x.com/twitter.com 域名）
         """
         if not self.exa_client:
             logger.debug("Exa client not available, skipping")
             return []
 
         try:
+            if is_tweet_search:
+                tweet_domains = ["x.com", "twitter.com"]
+                if include_domains:
+                    include_domains = list(set(include_domains + tweet_domains))
+                else:
+                    include_domains = tweet_domains
+
+            if category and category not in self.VALID_EXA_CATEGORIES:
+                logger.warning(f"Exa category '{category}' is not valid, ignoring. Valid: {self.VALID_EXA_CATEGORIES}")
+                category = None
+
             kwargs = {
                 'query': query,
                 'num_results': num_results,
@@ -164,7 +178,8 @@ class SearchAPICollector:
         days: int = 7,
         include_domains: List[str] = None,
         exclude_domains: List[str] = None,
-        exa_only: bool = False
+        exa_only: bool = False,
+        is_tweet_search: bool = False,
     ) -> List[Dict]:
         """
         同时调用所有可用API搜索，合并去重
@@ -175,6 +190,7 @@ class SearchAPICollector:
             category: Exa专用分类
             days: 搜索天数
             exa_only: 是否只用Exa（如Twitter搜索）
+            is_tweet_search: 是否搜索 Twitter/X 内容
         """
         all_results = []
 
@@ -185,7 +201,8 @@ class SearchAPICollector:
             category=category,
             days=days,
             include_domains=include_domains,
-            exclude_domains=exclude_domains
+            exclude_domains=exclude_domains,
+            is_tweet_search=is_tweet_search,
         )
         all_results.extend(exa_results)
 

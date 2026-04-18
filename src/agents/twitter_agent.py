@@ -13,32 +13,20 @@ logger = logging.getLogger(__name__)
 
 # AI Agent 领域核心 KOL 列表
 DEFAULT_AI_KOLS = [
-    # AI 公司/实验室负责人
-    "sama",              # Sam Altman - OpenAI CEO
-    "aaborovkov",        # Anthropic
-    "ylecun",            # Yann LeCun - Meta AI
-    "AndrewYNg",         # Andrew Ng
-    "kaboroevich",       # Andrej Karpathy
-
-    # Agent 框架/工具创始人
-    "hwchase17",         # Harrison Chase - LangChain
-    "joaomdmoura",       # João Moura - CrewAI
-    "jerryjliu0",        # Jerry Liu - LlamaIndex
-
-    # AI Agent 领域活跃研究者/开发者
-    "siaborisov",        # Simon Willison
-    "swaborisov",        # Swyx
-    "alexalbert__",      # Alex Albert - Anthropic
-    "mcaborisov",        # McKay Wrigley
-    "emaborisov",        # Emad Mostaque
-    "bindureddy",        # Bindu Reddy - Abacus.AI
-    "chiefaioff",        # Chief AI Officer
-    "DrJimFan",          # Jim Fan - NVIDIA
-    "oaborisov",         # Oran Looney
-
-    # 中文 AI 圈 KOL
-    "dotey",             # 宝玉
-    "9hills",            # 九山
+    "sama",
+    "ylecun",
+    "AndrewYNg",
+    "karpathy",
+    "hwchase17",
+    "joaomdmoura",
+    "jerryjliu0",
+    "alexalbert__",
+    "DrJimFan",
+    "bindureddy",
+    "swyx",
+    "simonw",
+    "dotey",
+    "9hills",
 ]
 
 
@@ -126,8 +114,8 @@ class TwitterAgent:
                 results = self.collector.search_exa(
                     query=search_query,
                     num_results=8,
-                    category="tweet",
                     days=self.days,
+                    is_tweet_search=True,
                 )
                 for r in results:
                     r['source_type'] = 'kol_tweet'
@@ -148,8 +136,8 @@ class TwitterAgent:
                 results = self.collector.search_exa(
                     query=query,
                     num_results=5,
-                    category="tweet",
                     days=self.days,
+                    is_tweet_search=True,
                 )
                 for r in results:
                     r['source_type'] = 'kol_tweet'
@@ -179,8 +167,8 @@ class TwitterAgent:
                 results = self.collector.search_exa(
                     query=query,
                     num_results=5,
-                    category="tweet",
                     days=self.days,
+                    is_tweet_search=True,
                 )
                 for r in results:
                     r['source_type'] = 'trending_discussion'
@@ -208,8 +196,8 @@ class TwitterAgent:
                 results = self.collector.search_exa(
                     query=query,
                     num_results=5,
-                    category="tweet",
                     days=self.days,
+                    is_tweet_search=True,
                 )
                 for r in results:
                     r['source_type'] = 'new_release'

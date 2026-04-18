@@ -17,10 +17,13 @@ BATCH_SIZE = 15
 class MiniMaxEvaluator:
     """MiniMax AI评估器"""
 
-    def __init__(self, api_key: str, group_id: str):
+    def __init__(self, api_key: str, group_id: str, config: Dict = None):
         self.api_key = api_key
         self.group_id = group_id
         self.base_url = "https://api.minimax.io/v1/text/chatcompletion_v2"
+        self.config = config or {}
+        eval_config = self.config.get('evaluation', {})
+        self.model = eval_config.get('model', 'M2-her')
 
     # ------------------------------------------------------------------
     # 通用评估入口：适用于任何类型的文章列表
@@ -232,7 +235,7 @@ class MiniMaxEvaluator:
         }
 
         payload = {
-            "model": "M2-her",
+            "model": self.model,
             "messages": [
                 {"role": "user", "content": prompt}
             ],
@@ -249,7 +252,17 @@ class MiniMaxEvaluator:
 
             if response.status_code == 200:
                 data = response.json()
-                content = data.get('choices', [{}])[0].get('message', {}).get('content', '')
+                choices = data.get('choices', [])
+                if not choices:
+                    logger.error(f"MiniMax API returned empty choices: {json.dumps(data)[:300]}")
+                    raise Exception("MiniMax API returned empty choices")
+                message = choices[0].get('message', {})
+                if message is None:
+                    message = {}
+                content = message.get('content', '')
+                if not content:
+                    logger.error(f"MiniMax API returned empty content: {json.dumps(data)[:300]}")
+                    raise Exception("MiniMax API returned empty content")
                 return content
             else:
                 logger.error(f"MiniMax API error: {response.status_code} - {response.text}")

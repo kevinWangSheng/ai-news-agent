@@ -29,6 +29,7 @@ jobs:
 
       - name: Run news aggregation
         env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
           MINIMAX_GROUP_ID: ${{ secrets.MINIMAX_GROUP_ID }}
           GH_TOKEN: ${{ secrets.GH_TOKEN }}

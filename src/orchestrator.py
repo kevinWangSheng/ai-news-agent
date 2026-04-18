@@ -13,6 +13,8 @@ from .agents.github_agent import GitHubAgent
 from .agents.ai_content_agent import AIContentAgent
 from .agents.chinese_platform_agent import ChinesePlatformAgent
 from .agents.twitter_agent import TwitterAgent
+from .agents.breaking_news_agent import BreakingNewsAgent
+from .evaluator.claude_evaluator import ClaudeEvaluator
 from .evaluator.ai_evaluator import MiniMaxEvaluator
 from .notifier.email_notifier import EmailNotifier
 
@@ -31,15 +33,26 @@ class NewsOrchestrator:
         self.ai_content_agent = AIContentAgent(self.config)
         self.chinese_platform_agent = ChinesePlatformAgent(self.config)
         self.twitter_agent = TwitterAgent(self.config)
+        self.breaking_news_agent = BreakingNewsAgent(self.config)
 
-        # 初始化AI评估器
+        # 初始化AI评估器 — 优先 Claude，降级 MiniMax
+        anthropic_key = os.getenv('ANTHROPIC_API_KEY')
         minimax_key = os.getenv('MINIMAX_API_KEY')
-        minimax_group = os.getenv('MINIMAX_GROUP_ID', '')
 
-        self.evaluator = MiniMaxEvaluator(
-            api_key=minimax_key,
-            group_id=minimax_group
-        )
+        if anthropic_key:
+            self.evaluator = ClaudeEvaluator(api_key=anthropic_key, config=self.config)
+            logger.info("Evaluator: Claude (Haiku 4.5 + prompt caching)")
+        elif minimax_key:
+            self.evaluator = MiniMaxEvaluator(
+                api_key=minimax_key,
+                group_id=os.getenv('MINIMAX_GROUP_ID', ''),
+                config=self.config,
+            )
+            logger.info("Evaluator: MiniMax (fallback — 未配置 ANTHROPIC_API_KEY)")
+        else:
+            raise RuntimeError(
+                "No evaluator available. Set ANTHROPIC_API_KEY (recommended) or MINIMAX_API_KEY."
+            )
 
         # 初始化通知器
         self.notifier = EmailNotifier()
@@ -87,15 +100,23 @@ class NewsOrchestrator:
 
             # 第四步：推送通知
             logger.info("\n[Step 4] Sending notifications...")
-            success = self.notifier.send_daily_report(report)
+            # 如果邮件未配置，send_daily_report 会抛异常；这里吞掉让报告还是能落本地
+            try:
+                success = self.notifier.send_daily_report(report)
+                if success:
+                    logger.info("Daily report sent successfully!")
+                else:
+                    logger.error("Failed to send daily report")
+            except Exception as exc:
+                logger.warning(f"Email delivery skipped: {exc}")
+                success = False
 
-            if success:
-                logger.info("Daily report sent successfully!")
-            else:
-                logger.error("Failed to send daily report")
+            # 健康检查摘要
+            self._log_run_health(evaluated_results, report)
 
             logger.info("=" * 50)
-            return success
+            # 本地报告生成成功视为流程成功（邮件失败不影响健康度）
+            return True
 
         except Exception as e:
             logger.error(f"Error in orchestrator run: {e}", exc_info=True)
@@ -105,6 +126,7 @@ class NewsOrchestrator:
         """并行搜集所有AI Agent内容"""
 
         tasks = {
+            'breaking': self.breaking_news_agent.collect(),
             'tech': self.tech_agent.collect(),
             'github': self.github_agent.collect(),
             'ai_content': self.ai_content_agent.collect(),
@@ -165,8 +187,14 @@ class NewsOrchestrator:
                     dedup_count += 1
             return unique
 
-        # 按优先级顺序处理：tech > twitter > github > ai_content > chinese
+        # 按优先级顺序处理：breaking > tech > twitter > github > ai_content > chinese
         # 先处理的来源保留，后处理的重复项会被过滤
+
+        # 0. Breaking news（最高优先级 — 今日发布必须保留）
+        if 'breaking' in all_results and isinstance(all_results['breaking'], dict):
+            for sub_key in all_results['breaking']:
+                if isinstance(all_results['breaking'][sub_key], list):
+                    all_results['breaking'][sub_key] = _dedup_list(all_results['breaking'][sub_key])
 
         # 1. Tech blogs（最高优先级）
         if 'tech' in all_results and isinstance(all_results['tech'], dict):
@@ -204,12 +232,79 @@ class NewsOrchestrator:
         return all_results
 
     # ------------------------------------------------------------------
+    # Prefilter: 硬过滤 exclude_keywords + 加权 focus_keywords
+    # ------------------------------------------------------------------
+    def _get_filter_config(self) -> Dict[str, List[str]]:
+        eval_cfg = self.config.get('evaluation', {}) or {}
+        filters = eval_cfg.get('filters', {}) or {}
+        return {
+            'exclude_keywords': [kw.lower() for kw in filters.get('exclude_keywords', []) or []],
+            'focus_keywords': [kw.lower() for kw in filters.get('focus_keywords', []) or []],
+        }
+
+    def _hard_filter_items(self, items: List[Dict]) -> List[Dict]:
+        """命中 exclude_keywords 直接丢弃"""
+        exclude = self._get_filter_config()['exclude_keywords']
+        if not exclude:
+            return items
+        out = []
+        dropped = 0
+        for a in items:
+            blob = f"{a.get('title', '')} {a.get('summary', '')}".lower()
+            if any(kw in blob for kw in exclude):
+                dropped += 1
+                continue
+            out.append(a)
+        if dropped:
+            logger.info(f"Hard filter dropped {dropped} items on exclude_keywords")
+        return out
+
+    def _apply_focus_boost(self, items: List[Dict]) -> None:
+        """focus_keywords 命中 +1 (最多 +2)，就地修改"""
+        focus = self._get_filter_config()['focus_keywords']
+        if not focus:
+            return
+        for a in items:
+            blob = f"{a.get('title', '')} {a.get('summary', '')} {a.get('title_cn', '')}".lower()
+            hits = sum(1 for kw in focus if kw in blob)
+            if hits:
+                boost = min(hits, 2)
+                a['score'] = min(10, a.get('score', 5) + boost)
+                a['_focus_boost'] = boost
+
+    # ------------------------------------------------------------------
     # 核心：所有板块过 LLM 评估 + 排序
     # ------------------------------------------------------------------
     async def _evaluate_all_content(self, all_results: Dict) -> Dict:
         """用 LLM 对所有内容评分、翻译、排序"""
 
         evaluated = {}
+
+        # Prefilter：给所有板块统一过一遍 exclude_keywords
+        for top_key in ('breaking', 'tech', 'ai_content', 'chinese_platform'):
+            bucket = all_results.get(top_key)
+            if isinstance(bucket, dict):
+                for sub in list(bucket.keys()):
+                    if isinstance(bucket[sub], list):
+                        bucket[sub] = self._hard_filter_items(bucket[sub])
+
+        # ---- 0. Breaking News（最高优先级）----
+        if 'breaking' in all_results and all_results['breaking']:
+            breaking_items = all_results['breaking'].get('items', [])
+            if breaking_items:
+                logger.info(f"Evaluating breaking news: {len(breaking_items)} items")
+                ranked_breaking = self.evaluator.evaluate_and_rank(
+                    articles=breaking_items,
+                    context="AI Agent 领域今日突发发布（官方公告/新模型/新框架）",
+                    max_output=self.config.get('breaking_news', {}).get('total_max_items', 20),
+                    fetch_content=False,
+                )
+                self._apply_focus_boost(ranked_breaking)
+                # 重排（focus_boost 可能改动分数）
+                ranked_breaking.sort(key=lambda x: x.get('score', 0), reverse=True)
+                # 只保留 Agent 相关性 >= 5 的（挡掉纯噪音，breaking 阈值低一档）
+                ranked_breaking = [a for a in ranked_breaking if a.get('score', 0) >= 5]
+                evaluated['breaking'] = ranked_breaking
 
         # ---- 1. 官方博客 + 专家博客 ----
         if 'tech' in all_results and all_results['tech']:
@@ -354,6 +449,14 @@ class NewsOrchestrator:
         """生成AI Agent技术博客日报"""
 
         report = ""
+
+        # === 0. 今日突发（置顶） ===
+        breaking = evaluated_results.get('breaking', [])
+        if breaking:
+            report += "## 今日突发（Breaking）\n\n"
+            report += "> 最近 24-48 小时内 AI Agent 领域的官方发布 / 突发新闻\n\n"
+            report += self._render_articles(breaking, show_source=True, show_score=True)
+            report += "---\n\n"
 
         # === 1. AI Agent 官方博客与专家动态 ===
         tech = evaluated_results.get('tech', {})
@@ -555,6 +658,45 @@ class NewsOrchestrator:
             text += "\n"
 
         return text
+
+    # ------------------------------------------------------------------
+    # 健康检查：报告覆盖度、源产出、评估器统计
+    # ------------------------------------------------------------------
+    def _log_run_health(self, evaluated: Dict, report: str) -> None:
+        logger.info("\n" + "=" * 50)
+        logger.info("Run Health Summary")
+        logger.info("=" * 50)
+
+        # 各板块条数
+        def _count(v):
+            if isinstance(v, list):
+                return len(v)
+            if isinstance(v, dict):
+                return sum(len(x) if isinstance(x, list) else 0 for x in v.values())
+            return 0
+
+        for key, val in evaluated.items():
+            logger.info(f"  {key:18s}: {_count(val)} items")
+
+        total = sum(_count(v) for v in evaluated.values())
+        logger.info(f"  {'TOTAL':18s}: {total} items")
+        logger.info(f"  {'report size':18s}: {len(report)} chars")
+
+        # 评估器统计
+        stats = getattr(self.evaluator, 'stats', None)
+        if callable(stats):
+            s = stats()
+            logger.info(
+                f"  evaluator: batches={s.get('batches', 0)} ok={s.get('ok', 0)} failed={s.get('failed', 0)}"
+            )
+
+        # 告警信号
+        if total < 10:
+            logger.error(f"  ALERT: 产出仅 {total} 条，疑似源全部静默失败")
+        if len(report) < 500:
+            logger.error(f"  ALERT: 报告过短 ({len(report)} 字符)")
+        if not evaluated.get('breaking'):
+            logger.warning("  breaking_news 板块为空 (检查 Exa/Tavily key 或 breaking_news 配置)")
 
     @staticmethod
     def _truncate(text: str, max_len: int) -> str:

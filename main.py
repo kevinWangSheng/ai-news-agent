@@ -38,23 +38,28 @@ async def main():
 
     logger.info("AI Agent Blog Aggregation System Starting...")
 
-    # 检查必需的环境变量
-    required_vars = ['MINIMAX_API_KEY', 'EMAIL_SENDER', 'EMAIL_PASSWORD', 'EMAIL_RECEIVER']
-    missing_vars = [var for var in required_vars if not os.getenv(var)]
-
-    if missing_vars:
-        logger.error(f"Missing required environment variables: {', '.join(missing_vars)}")
-        logger.error("Please create a .env file with all required variables")
-        logger.error("For Gmail, you need an App Password: https://myaccount.google.com/apppasswords")
+    # 评估器至少得有一个 key
+    if not (os.getenv('ANTHROPIC_API_KEY') or os.getenv('MINIMAX_API_KEY')):
+        logger.error("Missing evaluator API key: set ANTHROPIC_API_KEY (recommended) or MINIMAX_API_KEY")
         sys.exit(1)
 
-    # 检查可选的搜索API环境变量
-    optional_search_vars = ['TAVILY_API_KEY', 'EXA_API_KEY']
-    available_search = [var for var in optional_search_vars if os.getenv(var)]
-    if available_search:
-        logger.info(f"Search APIs available: {', '.join(available_search)}")
+    # 邮件通知 optional 化（没配置也不 sys.exit，保留跑报告 + 落地本地文件的能力）
+    email_vars = ['EMAIL_SENDER', 'EMAIL_PASSWORD', 'EMAIL_RECEIVER']
+    missing_email = [v for v in email_vars if not os.getenv(v)]
+    if missing_email:
+        logger.warning(
+            f"Email not configured ({', '.join(missing_email)}) — 报告仍会生成到 output/daily_report.md 但不发邮件"
+        )
+
+    # 搜索 API 诊断（breaking_news 依赖 Exa/Tavily 时效搜索）
+    search_keys = [v for v in ('TAVILY_API_KEY', 'EXA_API_KEY') if os.getenv(v)]
+    if search_keys:
+        logger.info(f"Search APIs available: {', '.join(search_keys)}")
     else:
-        logger.warning("No search API keys found (TAVILY_API_KEY, EXA_API_KEY). AI content search will be skipped.")
+        logger.warning(
+            "未配置 TAVILY_API_KEY / EXA_API_KEY — breaking_news 只能走 RSS 通道，"
+            "建议补全以抓'今日发布'"
+        )
 
     # 配置文件路径
     config_path = Path(__file__).parent / 'config' / 'config.yaml'

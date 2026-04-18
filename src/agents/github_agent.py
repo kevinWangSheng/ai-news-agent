@@ -21,6 +21,8 @@ class GitHubAgent:
         self.collector = NewsCollector()
         self.github_config = config.get('github', {})
         self.github_token = os.getenv('GH_TOKEN') or os.getenv('GITHUB_TOKEN')
+        # token 失效后本 session 停用，避免每 query 都打一次 401
+        self._token_disabled = False
 
     async def collect(self) -> Dict[str, List[Dict]]:
         """搜集GitHub热门项目"""
@@ -178,8 +180,26 @@ class GitHubAgent:
         import requests
         import time
 
-        headers = {'Accept': 'application/vnd.github.v3+json'}
-        if self.github_token:
+        def _parse(data: Dict) -> List[Dict]:
+            return [
+                {
+                    'name': repo['name'],
+                    'author': repo['owner']['login'],
+                    'url': repo['html_url'],
+                    'description': repo.get('description', ''),
+                    'language': repo.get('language', ''),
+                    'stars': repo['stargazers_count'],
+                    'forks': repo['forks_count'],
+                    'updated_at': repo['updated_at'],
+                    'created_at': repo.get('created_at', ''),
+                }
+                for repo in data.get('items', [])
+            ]
+
+        base_headers = {'Accept': 'application/vnd.github.v3+json'}
+        use_token = bool(self.github_token) and not self._token_disabled
+        headers = dict(base_headers)
+        if use_token:
             headers['Authorization'] = f'Bearer {self.github_token}'
 
         url = "https://api.github.com/search/repositories"
@@ -187,56 +207,26 @@ class GitHubAgent:
             'q': query,
             'sort': sort,
             'order': order,
-            'per_page': max_items
+            'per_page': max_items,
         }
 
         try:
             response = requests.get(url, params=params, headers=headers, timeout=15)
             if response.status_code == 200:
-                data = response.json()
-                results = []
-                for repo in data.get('items', []):
-                    project = {
-                        'name': repo['name'],
-                        'author': repo['owner']['login'],
-                        'url': repo['html_url'],
-                        'description': repo.get('description', ''),
-                        'language': repo.get('language', ''),
-                        'stars': repo['stargazers_count'],
-                        'forks': repo['forks_count'],
-                        'updated_at': repo['updated_at'],
-                        'created_at': repo.get('created_at', ''),
-                    }
-                    results.append(project)
-                return results
-            elif response.status_code == 401 or response.status_code == 403:
-                if self.github_token:
-                    logger.warning(f"GitHub token may be expired (HTTP {response.status_code}), retrying without token...")
-                    headers_no_token = {'Accept': 'application/vnd.github.v3+json'}
-                    time.sleep(1)
-                    response2 = requests.get(url, params=params, headers=headers_no_token, timeout=15)
-                    if response2.status_code == 200:
-                        data = response2.json()
-                        results = []
-                        for repo in data.get('items', []):
-                            project = {
-                                'name': repo['name'],
-                                'author': repo['owner']['login'],
-                                'url': repo['html_url'],
-                                'description': repo.get('description', ''),
-                                'language': repo.get('language', ''),
-                                'stars': repo['stargazers_count'],
-                                'forks': repo['forks_count'],
-                                'updated_at': repo['updated_at'],
-                                'created_at': repo.get('created_at', ''),
-                            }
-                            results.append(project)
-                        return results
-                    logger.error(f"GitHub API error without token: {response2.status_code}")
-                else:
-                    logger.error(f"GitHub API error: {response.status_code} - rate limited or auth issue")
-            else:
-                logger.error(f"GitHub API error: {response.status_code}")
+                return _parse(response.json())
+
+            # 401/403 + 用了 token —— token 失效；本 session 停用，并尝试匿名
+            if response.status_code in (401, 403) and use_token:
+                logger.warning(
+                    f"GH_TOKEN 失效 (HTTP {response.status_code})，本次运行切换为匿名模式（限额 60 req/h）"
+                )
+                self._token_disabled = True
+                time.sleep(1)
+                response = requests.get(url, params=params, headers=base_headers, timeout=15)
+                if response.status_code == 200:
+                    return _parse(response.json())
+
+            logger.error(f"GitHub API error: {response.status_code} {response.text[:120]}")
         except Exception as e:
             logger.error(f"Error calling GitHub API: {e}")
 

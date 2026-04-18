@@ -79,8 +79,20 @@ class SearchAPICollector:
                 'max_results': max_results,
             }
 
-            if days and days <= 7:
-                kwargs['time_range'] = f"{days}d"
+            # Tavily 的 time_range 只接受 "day/week/month/year"；topic=news 时另外支持 days 整数。
+            # 修复: days=2 之类的值要映射到合法 time_range，不能直接拼 "2d"
+            if days:
+                if topic == "news":
+                    kwargs['days'] = days
+                else:
+                    if days <= 1:
+                        kwargs['time_range'] = 'day'
+                    elif days <= 7:
+                        kwargs['time_range'] = 'week'
+                    elif days <= 31:
+                        kwargs['time_range'] = 'month'
+                    else:
+                        kwargs['time_range'] = 'year'
 
             if include_domains:
                 kwargs['include_domains'] = include_domains

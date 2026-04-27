@@ -17,6 +17,7 @@ from .agents.breaking_news_agent import BreakingNewsAgent
 from .evaluator.claude_evaluator import ClaudeEvaluator
 from .evaluator.ai_evaluator import MiniMaxEvaluator
 from .notifier.email_notifier import EmailNotifier
+from .notifier.resend_notifier import ResendNotifier
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +55,13 @@ class NewsOrchestrator:
                 "No evaluator available. Set ANTHROPIC_API_KEY (recommended) or MINIMAX_API_KEY."
             )
 
-        # 初始化通知器
-        self.notifier = EmailNotifier()
+        # 初始化通知器：优先 Resend（HTTP API，绕开 SMTP 反滥用），缺省回落到 SMTP
+        if os.getenv('RESEND_API_KEY'):
+            self.notifier = ResendNotifier()
+            logger.info("Notifier: Resend (HTTP API)")
+        else:
+            self.notifier = EmailNotifier()
+            logger.info("Notifier: SMTP (EmailNotifier)")
 
     def _load_config(self, config_path: str) -> Dict:
         """加载配置文件"""

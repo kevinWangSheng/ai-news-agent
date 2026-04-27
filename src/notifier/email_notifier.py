@@ -66,7 +66,7 @@ class EmailNotifier:
         email_lower = email.lower()
 
         if '@qq.com' in email_lower:
-            return "smtp.qq.com", 587
+            return "smtp.qq.com", 465
         elif '@163.com' in email_lower:
             return "smtp.163.com", 465
         elif '@126.com' in email_lower:

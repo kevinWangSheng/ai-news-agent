@@ -5,6 +5,7 @@
 
 import os
 import smtplib
+import time
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
@@ -13,6 +14,15 @@ from typing import Optional
 import markdown
 
 logger = logging.getLogger(__name__)
+
+
+def _open_smtp(server: str, port: int) -> smtplib.SMTP:
+    """端口 465 必须用 SMTP_SSL（隐式 TLS），其它端口用 SMTP + STARTTLS。"""
+    if port == 465:
+        return smtplib.SMTP_SSL(server, port, timeout=30)
+    conn = smtplib.SMTP(server, port, timeout=30)
+    conn.starttls()
+    return conn
 
 
 class EmailNotifier:
@@ -90,43 +100,51 @@ class EmailNotifier:
             logger.error("Email configuration not complete")
             return False
 
-        try:
-            # 创建邮件对象
-            message = MIMEMultipart("alternative")
-            message["Subject"] = subject
-            message["From"] = self.sender_email
-            message["To"] = self.receiver_email
+        # 创建邮件对象
+        message = MIMEMultipart("alternative")
+        message["Subject"] = subject
+        message["From"] = self.sender_email
+        message["To"] = self.receiver_email
 
-            # 添加纯文本版本
-            text_content = self._markdown_to_plain_text(body) if format_type == "markdown" else body
-            part1 = MIMEText(text_content, "plain", "utf-8")
-            message.attach(part1)
+        # 添加纯文本版本
+        text_content = self._markdown_to_plain_text(body) if format_type == "markdown" else body
+        message.attach(MIMEText(text_content, "plain", "utf-8"))
 
-            # 如果是Markdown，添加HTML版本
-            if format_type == "markdown":
-                html_content = self._markdown_to_html(body)
-                part2 = MIMEText(html_content, "html", "utf-8")
-                message.attach(part2)
-            elif format_type == "html":
-                part2 = MIMEText(body, "html", "utf-8")
-                message.attach(part2)
+        # 如果是Markdown，添加HTML版本
+        if format_type == "markdown":
+            message.attach(MIMEText(self._markdown_to_html(body), "html", "utf-8"))
+        elif format_type == "html":
+            message.attach(MIMEText(body, "html", "utf-8"))
 
-            # 连接SMTP服务器并发送
-            with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
-                server.starttls()  # 启用TLS加密
-                server.login(self.sender_email, self.sender_password)
-                server.send_message(message)
+        last_exc: Optional[Exception] = None
+        for attempt in range(1, 4):
+            try:
+                with _open_smtp(self.smtp_server, self.smtp_port) as server:
+                    server.login(self.sender_email, self.sender_password)
+                    server.send_message(message)
+                logger.info(f"Email sent successfully to {self.receiver_email}")
+                return True
+            except smtplib.SMTPAuthenticationError as e:
+                # 认证失败重试也没意义，直接退出
+                logger.error(
+                    f"SMTP authentication failed via {self.smtp_server}:{self.smtp_port} — "
+                    f"QQ 邮箱必须用授权码（不是登录密码），Gmail 必须用 App Password。{e}"
+                )
+                return False
+            except Exception as e:
+                last_exc = e
+                logger.warning(
+                    f"SMTP send attempt {attempt}/3 failed via "
+                    f"{self.smtp_server}:{self.smtp_port}: {e}"
+                )
+                if attempt < 3:
+                    time.sleep(2 ** attempt)  # 2s, 4s
 
-            logger.info(f"Email sent successfully to {self.receiver_email}")
-            return True
-
-        except smtplib.SMTPAuthenticationError:
-            logger.error("SMTP authentication failed. Please check your email and password.")
-            logger.error("For Gmail, you need to use an App Password, not your regular password.")
-            return False
-        except Exception as e:
-            logger.error(f"Error sending email: {e}")
-            return False
+        logger.error(
+            f"Error sending email after 3 attempts via "
+            f"{self.smtp_server}:{self.smtp_port}: {last_exc}"
+        )
+        return False
 
     def send_daily_report(self, report: str) -> bool:
         """
@@ -284,11 +302,10 @@ class EmailNotifier:
             return False
 
         try:
-            with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
-                server.starttls()
+            with _open_smtp(self.smtp_server, self.smtp_port) as server:
                 server.login(self.sender_email, self.sender_password)
 
-            logger.info(f"Email server connection successful: {self.smtp_server}")
+            logger.info(f"Email server connection successful: {self.smtp_server}:{self.smtp_port}")
             return True
 
         except smtplib.SMTPAuthenticationError:
@@ -297,7 +314,7 @@ class EmailNotifier:
             logger.error("Visit: https://myaccount.google.com/apppasswords")
             return False
         except Exception as e:
-            logger.error(f"Email connection test failed: {e}")
+            logger.error(f"Email connection test failed via {self.smtp_server}:{self.smtp_port}: {e}")
             return False
 
     def send_test_email(self) -> bool:

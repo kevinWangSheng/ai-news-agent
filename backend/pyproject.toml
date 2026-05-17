@@ -1,0 +1,49 @@
+[project]
+name = "ai-agent-hub-backend"
+version = "0.1.0"
+description = "Personal AI information hub backend"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "sqlalchemy[asyncio]>=2.0",
+    "asyncpg>=0.30",
+    "alembic>=1.13",
+    "pgvector>=0.3",
+    "httpx>=0.27",
+    "python-dotenv>=1.0",
+    "feedparser>=6.0",
+    "trafilatura>=2.0",
+    "playwright>=1.49",
+    "anthropic>=0.39",
+    "voyageai>=0.3",
+    "openai>=1.55",
+    "pyyaml>=6.0",
+    "apscheduler[sqlalchemy]>=3.10",
+    "psycopg2-binary>=2.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "testcontainers[postgres]>=4.8",
+    "ruff>=0.7",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

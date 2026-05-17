@@ -2,6 +2,7 @@
 .env
 *.key
 secrets/
+docker/.env
 
 # Python
 __pycache__/
@@ -13,6 +14,15 @@ venv/
 env/
 ENV/
 .venv
+backend/.venv/
+cli/.venv/
+
+# Node / Next.js
+node_modules/
+frontend/node_modules/
+frontend/.next/
+frontend/.turbo/
+frontend/out/
 
 # IDE
 .vscode/
@@ -40,8 +50,7 @@ temp/
 tmp/
 *.tmp
 
-# 输出文件
+# 旧版输出 / 临时脚本
 output/
-
-# 测试脚本
-test_*.py
+test_pipeline.py
+news_agent.log

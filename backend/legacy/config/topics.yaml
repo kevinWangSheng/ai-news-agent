@@ -1,0 +1,196 @@
+# 主题字典 — 各 source 的 queries / focus_keywords 都由此派生
+# 002a-source-tuning 产物；003-ingestion-sources 在平移时直接读这里
+# 字段:
+#   slug             : 唯一,英文小写连字符
+#   name_zh / name_en: 显示名
+#   keywords_en      : 英文关键词(用于 focus_keywords + 各英文 source query)
+#   keywords_zh      : 中文关键词
+#   site_queries     : exa_search 站内查询 [{site, query}]
+#   kol_topic_queries: Twitter topic 查询
+#   github_queries   : GitHub 项目搜索
+
+topics:
+  # ===== 协议 / 框架 =====
+  - slug: mcp
+    name_zh: "Model Context Protocol"
+    name_en: "MCP"
+    keywords_en: ["mcp", "model context protocol"]
+    keywords_zh: ["模型上下文协议"]
+    site_queries:
+      - {site: "anthropic.com", query: "Model Context Protocol"}
+    kol_topic_queries: ["MCP protocol Claude tool use update"]
+    github_queries: ["MCP server topic"]
+
+  - slug: mcp-server
+    name_zh: "MCP Server"
+    keywords_en: ["mcp server", "mcp servers"]
+    keywords_zh: ["MCP 服务器"]
+    site_queries: []
+    github_queries: ["awesome MCP servers"]
+
+  - slug: a2a-protocol
+    name_zh: "A2A 协议"
+    name_en: "Agent-to-Agent Protocol"
+    keywords_en: ["a2a protocol", "agent-to-agent", "agent2agent"]
+    keywords_zh: ["智能体协议"]
+    site_queries:
+      - {site: "developers.googleblog.com", query: "A2A agent protocol"}
+
+  - slug: multi-agent
+    name_zh: "多智能体"
+    keywords_en: ["multi-agent", "multi agent", "swarm"]
+    keywords_zh: ["多智能体", "多 agent"]
+    site_queries: []
+    kol_topic_queries: ["multi-agent system breakthrough demo"]
+
+  - slug: sub-agent
+    name_zh: "子智能体"
+    keywords_en: ["sub-agent", "sub agent", "subagent"]
+    keywords_zh: ["子智能体"]
+
+  - slug: agent-orchestration
+    name_zh: "智能体编排"
+    keywords_en: ["agent orchestration", "agent workflow"]
+    keywords_zh: ["智能体编排"]
+
+  - slug: agent-framework
+    name_zh: "Agent 框架"
+    keywords_en: ["agent framework", "agentic framework"]
+    keywords_zh: ["agent 框架", "智能体框架"]
+
+  - slug: langchain
+    name_zh: "LangChain"
+    keywords_en: ["langchain", "langgraph"]
+
+  - slug: crewai
+    name_zh: "CrewAI"
+    keywords_en: ["crewai"]
+
+  - slug: autogen
+    name_zh: "AutoGen / AG2"
+    keywords_en: ["autogen", "ag2"]
+
+  # ===== Coding agents =====
+  - slug: claude-code
+    name_zh: "Claude Code"
+    keywords_en: ["claude code", "claude-code"]
+    site_queries:
+      - {site: "anthropic.com", query: "Claude Code"}
+
+  - slug: cursor
+    name_zh: "Cursor"
+    keywords_en: ["cursor", "anysphere"]
+
+  - slug: windsurf
+    name_zh: "Windsurf"
+    keywords_en: ["windsurf"]
+
+  - slug: devin
+    name_zh: "Devin"
+    keywords_en: ["devin", "cognition"]
+
+  - slug: coding-agent
+    name_zh: "编码 Agent"
+    keywords_en: ["coding agent", "code agent", "ai coding"]
+    keywords_zh: ["编码助手"]
+
+  # ===== Computer / Browser use =====
+  - slug: computer-use
+    name_zh: "Computer Use"
+    keywords_en: ["computer use", "computer-use"]
+    site_queries:
+      - {site: "anthropic.com", query: "computer use"}
+
+  - slug: browser-agent
+    name_zh: "浏览器 Agent"
+    keywords_en: ["browser agent", "browser use", "browserbase"]
+    keywords_zh: ["浏览器智能体"]
+
+  - slug: agentic-browser
+    name_zh: "Agent 浏览器"
+    keywords_en: ["agentic browser", "comet"]
+    keywords_zh: ["智能体浏览器"]
+
+  # ===== Tool / Function / Reasoning =====
+  - slug: function-calling
+    name_zh: "Function Calling"
+    keywords_en: ["function calling", "tool calling"]
+
+  - slug: tool-use
+    name_zh: "Tool Use"
+    keywords_en: ["tool use", "tool-use"]
+
+  - slug: reasoning-model
+    name_zh: "推理模型"
+    keywords_en: ["reasoning model", "o1", "o3", "deepseek r1"]
+    keywords_zh: ["推理模型"]
+
+  - slug: deep-research
+    name_zh: "Deep Research"
+    keywords_en: ["deep research", "deepresearch"]
+    keywords_zh: ["深度研究"]
+
+  # ===== Memory / Context =====
+  - slug: agent-memory
+    name_zh: "Agent 记忆"
+    keywords_en: ["agent memory", "long-term memory"]
+    keywords_zh: ["智能体记忆"]
+
+  - slug: context-engineering
+    name_zh: "Context Engineering"
+    keywords_en: ["context engineering"]
+
+  - slug: rag-agent
+    name_zh: "RAG Agent"
+    keywords_en: ["rag agent", "retrieval-augmented agent"]
+
+  # ===== Eval / Pricing =====
+  - slug: agent-eval
+    name_zh: "Agent 评测"
+    keywords_en: ["agent eval", "agent benchmark", "swe-bench"]
+    keywords_zh: ["智能体评测"]
+
+  - slug: outcome-based-pricing
+    name_zh: "按结果定价"
+    keywords_en: ["outcome-based pricing", "agentic pricing"]
+
+  # ===== Voice / Multi-modal =====
+  - slug: voice-agent
+    name_zh: "语音 Agent"
+    keywords_en: ["voice agent", "voice assistant"]
+    keywords_zh: ["语音助手"]
+
+  # ===== World model / Embodied =====
+  - slug: world-model
+    name_zh: "世界模型"
+    keywords_en: ["world model"]
+    keywords_zh: ["世界模型"]
+
+  - slug: embodied-agent
+    name_zh: "具身智能"
+    keywords_en: ["embodied agent", "embodied ai"]
+    keywords_zh: ["具身智能"]
+
+  # ===== Commerce / OS =====
+  - slug: agentic-commerce
+    name_zh: "Agentic 电商"
+    keywords_en: ["agentic commerce", "agent commerce"]
+
+  - slug: agentic-os
+    name_zh: "Agentic OS"
+    keywords_en: ["agentic os", "ai os"]
+
+  # ===== Companies / Models with high signal =====
+  - slug: thinking-machines
+    name_zh: "Thinking Machines"
+    keywords_en: ["thinking machines", "tinker"]
+    site_queries:
+      - {site: "thinkingmachines.ai", query: "research"}
+
+  - slug: alphaevolve
+    name_zh: "AlphaEvolve"
+    keywords_en: ["alphaevolve"]
+
+  - slug: interaction-model
+    name_zh: "交互模型"
+    keywords_en: ["interaction model"]

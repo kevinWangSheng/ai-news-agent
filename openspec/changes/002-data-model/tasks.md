@@ -1,0 +1,31 @@
+# 002 · Data Model — Tasks
+
+- [x] 1. 在 `backend/pyproject.toml` 加依赖:`sqlalchemy[asyncio]`、`alembic`、`asyncpg`、`pgvector`(Python 客户端)
+- [x] 2. 新建 `backend/app/db/base.py`:Declarative Base + naming convention(批量 migration 友好)
+- [x] 3. 新建 `backend/app/db/session.py`:async engine + session factory + dependency `get_db`
+- [x] 4. 新建 `backend/app/db/models.py`,按 specs/storage.md 定义:
+  - `Item`(含 url_normalized UNIQUE、embedding vector(1024)、search_vector tsvector、status/processing_status enum 字符串、tags TEXT[])
+  - `Topic` / `Entity` / `ItemTopic` / `ItemEntity` / `Interaction` / `Digest` / `IngestionError`
+- [x] 5. 在 `backend/app/db/types.py` 定义 enum:`ItemStatus`、`ProcessingStatus`、`SourceType`、`InteractionAction`、`EntityType`
+- [x] 6. `cd backend && uv run alembic init alembic`,配置 `env.py` 使用 async engine + import 全部 models
+  - 直接 hand-write alembic.ini / env.py / script.py.mako(因为 init 会装空模板再覆盖,且我们要 async engine + Settings 注入)
+- [x] 7. 生成第一个 migration:`alembic revision --autogenerate -m "init schema"`,手动审查
+  - autogenerate 需要 running postgres,本地无 docker;改为 hand-write `alembic/versions/20260517_0001_init_schema.py`(覆盖所有表 + 扩展 + 索引 + 3 个 trigger)
+- [x] 8. 在 migration 里追加扩展启用:`op.execute("CREATE EXTENSION IF NOT EXISTS vector")` + `pg_trgm`
+- [x] 9. 追加 search_vector trigger(用 plpgsql)
+- [x] 10. 追加 trigger:`BEFORE INSERT OR UPDATE ON items` 触发上面函数
+- [x] 11. 追加 trigger:`item_topics` insert/delete 自动更新 `topics.item_count` 和 `last_item_at`,`item_entities` 同理
+- [x] 12. 索引明细全部落到 migration:见 specs/storage.md
+- [x] 13. HNSW 索引:`USING hnsw (embedding vector_cosine_ops)`,参数 `m=16, ef_construction=64`(从 Settings 读)
+- [x] 14. 写 `backend/tests/test_schema.py` + `backend/tests/conftest.py`:
+  - 用 `testcontainers[postgres]` 起一次性 postgres
+  - conftest fixture:`pg_container` + `pg_engine`(session-scoped,alembic upgrade head)
+  - test_schema.py:smoke insert items / topics / interactions → 验证 search_vector + item_count trigger
+  - backend/pyproject.toml dev deps 已加 `testcontainers[postgres]`
+- [x] 15. 在 `backend/app/main.py` 启动时 ping DB,失败提示 "请先 `alembic upgrade head`"
+- [ ] 16. **verify**:`uv run alembic upgrade head` 干净
+  - 需要 running postgres,本机无 docker;migration 模块已通过 import-time 语法检查
+- [ ] 17. **verify**:`uv run pytest tests/test_schema.py` 通过
+  - testcontainers 需要 docker daemon,本机无 docker;留给用户在装 docker 的环境跑
+- [ ] 18. **verify**:`psql -c "\d items"` 列字段正确,索引存在
+  - 需要 running postgres,同上

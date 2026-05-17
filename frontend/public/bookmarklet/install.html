@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>ai-agent-hub · Bookmarklet 安装</title>
+  <style>
+    body { font: 16px/1.6 system-ui, -apple-system, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; color: #1a1a1a; }
+    code, pre { font-family: ui-monospace, Menlo, monospace; background: #f3f3f3; padding: 2px 6px; border-radius: 4px; }
+    pre { padding: 12px; overflow-x: auto; font-size: 13px; line-height: 1.5; }
+    .btn { display: inline-block; padding: 12px 18px; background: #111; color: #fff; border-radius: 8px; text-decoration: none; font-weight: 600; }
+    .btn:hover { background: #333; }
+    .hint { color: #666; font-size: 14px; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <h1>📥 投喂到 hub · 一键安装</h1>
+  <p>把下面的按钮拖到浏览器书签栏。之后在任何网页点击它,当前页会被投喂到本机的 ai-agent-hub:</p>
+
+  <p>
+    <a class="btn" href="javascript:(function(){var api=window.HUB_API||'http://localhost:8000';var sel=window.getSelection().toString();fetch(api+'/api/ingest',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:location.href,title:document.title,content:sel||null,source_type:'manual',source_name:'bookmarklet'})}).then(function(r){return r.json();}).then(function(j){alert('已投喂 #'+j.item_id+(j.created?'':' (已存在)'))}).catch(function(e){alert('投喂失败: '+e);});})();">📥 投喂到 hub</a>
+  </p>
+  <p class="hint">拖到书签栏即可,无需复制代码。</p>
+
+  <h2>原始代码(如需手动配置)</h2>
+  <pre>javascript:(function(){var api=window.HUB_API||'http://localhost:8000';var sel=window.getSelection().toString();fetch(api+'/api/ingest',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:location.href,title:document.title,content:sel||null,source_type:'manual',source_name:'bookmarklet'})}).then(function(r){return r.json();}).then(function(j){alert('已投喂 #'+j.item_id+(j.created?'':' (已存在)'))}).catch(function(e){alert('投喂失败: '+e);});})();</pre>
+
+  <h2>注意</h2>
+  <ul>
+    <li>当前页若是 https,bookmarklet 调本机 <code>http://localhost:8000</code> 可能被浏览器以 mixed-content 拦截,可在 Chrome 启动参数加 <code>--allow-running-insecure-content</code>,或给本机 backend 配自签 https。</li>
+    <li>如要选中文字一起投喂,先选中再点击 bookmarklet。</li>
+    <li>后端 CORS 已配 <code>allow_origins=["*"]</code>(见 backend/app/config.py 的 <code>cors_origins</code>)。</li>
+  </ul>
+</body>
+</html>

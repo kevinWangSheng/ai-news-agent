@@ -135,4 +135,8 @@ openspec/
 016 second-brain         ← LLM 二次加工 / 关注主题 / mute boost / trending / ask
  ↓
 017 polish-style-mobile  ← 风格选定 / 小屏 / Reader Mode / 备份导出 / onboarding
+ ↓
+018 ops-and-tooling      ← scheduler 健康面板 / 错误页 / 失活源报警 / hub 批量投喂
 ```
+
+> 015 跟 018 是平行轨道:dogfood 期间(预计 1-2 周)如果运维痛点先出现,可以先做 018 的部分项。

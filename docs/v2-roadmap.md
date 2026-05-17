@@ -1,10 +1,15 @@
 # v2 Roadmap — 内容覆盖 + UI 重做讨论清单
 
+> **2026-05-17 更新**:本文档已被拆分到正式 change 包,留作历史索引。请优先看:
+> - `openspec/changes/014-web-source-coverage/` ← A1/A2 落地
+> - `openspec/changes/015-consumption-ux/` ← B/C/D/E/H 全部 UX 项
+> - `openspec/changes/016-second-brain/` ← D2/D3/E1-E3/F1-F4(outline)
+> - `openspec/changes/017-polish-style-mobile/` ← B2/G1-G2 风格 + 手机(sketch)
+> - `openspec/changes/018-ops-and-tooling/` ← E1-E4/F1-F2/G1 运维 + CLI(outline)
+
 > 这是 v1 (ebd40bb..5c1c9a1) 跑起来之后,基于真实数据(369 条 items / 26 个源 / ARK 99.7% embed 命中)发现的不足 + 改进想法。
 >
-> **状态:全部是「待讨论」**。优先级是我的建议,不是定论。逐条 review 后,确认的会拆成 `openspec/changes/014+` 正式跑。
->
-> 阅读方式:`[P0]` = 阻塞性 / 基础;`[P1]` = 高 ROI;`[P2]` = 体验提升;`[P3]` = 可能不值;每条带 **症状**(为什么需要)+ **改法**(怎么做)+ **代价**(工作量级)。
+> **原始优先级标记保留**:`[P0]` = 阻塞性 / 基础;`[P1]` = 高 ROI;`[P2]` = 体验提升;`[P3]` = 可能不值;每条带 **症状**(为什么需要)+ **改法**(怎么做)+ **代价**(工作量级)。
 
 ---
 

@@ -1,5 +1,23 @@
 # Changelog
 
+## v2.2.0-planning (2026-05-17) — 下一波规划落地
+
+只是规划,没有代码改动。基于 v2.1.0 实跑发现的内容缺口 + UX 痛点,把后续工作拆成 5 个 change 包:
+
+- `openspec/changes/014-web-source-coverage/`(`pending`,执行第一)— 实现 `WebSource` 接入 17 个 `type:web` 站(Anthropic / Claude / Cursor / LangChain Blog 等),chromium 路径推迟
+- `openspec/changes/015-consumption-ux/`(`pending`,执行第二)— Markdown 真渲染 / inbox 筛选栏 / 注意力分层(score 变体 / today 分段 / breakdown 可见 / cold_start 警告) / 键盘流 J/K/S/E/X / Undo toast / 批量选 / 笔记 UI / 虚拟滚动
+- `openspec/changes/016-second-brain/`(`planned-outline`)— LLM 二次加工(ask / find-related / `/ask`)/ 关注主题 / 信源 mute boost UI / trending cluster
+- `openspec/changes/017-polish-style-mobile/`(`planned-sketch`)— 风格 5 选 1 / 手机响应 / Reader Mode / 备份导出 / onboarding / 可访问性
+- `openspec/changes/018-ops-and-tooling/`(`planned-outline`)— scheduler 健康面板 / ingestion 错误页 / 源失活报警 / hub 批量投喂
+
+支撑文档:
+
+- `docs/content-truth.md` — 内容覆盖 + 数据质量实证报告
+- `docs/v2-roadmap.md` — 24 条候选改进的总清单(历史索引,已被上面 5 个 change 包细化)
+- `docs/troubleshooting.md` — 常见环境问题速查(Playwright MCP / Docker / Colima / Next.js / Backend / CLI)
+
+`openspec/README.md` 依赖图同步更新。
+
 ## v2.0.0 (2026-05-17) — ai-agent-hub
 
 从 `ai-news-agent`(单向新闻聚合,GH Actions+邮件)升级为 `ai-agent-hub`(双向、持久、累积的个人 AI 信息中枢)。

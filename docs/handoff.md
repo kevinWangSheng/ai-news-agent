@@ -1,24 +1,35 @@
 # 接手清单 — 装好 Docker 后照着跑
 
-openspec 14 个 change 都已经标 completed,但 7 个 change 留了"需 docker / 需 API key"的 verify。
-本清单按顺序走完,把所有挂账收口,然后才安全删 `backend/legacy/`。
+> 2026-05-17 §1-7 已由 Claude Code 真机跑通(colima + docker compose),过程中修了 5 个仅 docker 暴露的 bug,见 [CHANGELOG.md v2.0.1](../CHANGELOG.md)。
+> `backend/legacy/` 已物理删除。本文档保留作为重建环境的 runbook。
+
+openspec 14 个 change 都已经标 completed,本清单按顺序走完即可完整复现一次端到端 verify。
 
 ---
 
 ## 0. 前置(只做一次)
 
 ```bash
-brew install --cask docker            # 或装 OrbStack / Docker Desktop
+# CLI-only(推荐,无需 Docker Desktop GUI):
+brew install colima docker docker-compose
+mkdir -p ~/.docker
+echo '{"cliPluginsExtraDirs":["/opt/homebrew/lib/docker/cli-plugins"]}' > ~/.docker/config.json
+colima start --cpu 4 --memory 6 --disk 30
+
+# 或装 Docker Desktop / OrbStack(GUI):
+brew install --cask docker
 open -a Docker && sleep 10            # 等 daemon
 
 cd docker/
 cp .env.example .env
 # 编辑 .env,至少填:
-#   ANTHROPIC_API_KEY=sk-ant-...
-#   VOYAGE_API_KEY=pa-...
-#   EXA_API_KEY=...
-#   TWITTER_BEARER_TOKEN=...
+#   ANTHROPIC_API_KEY=sk-ant-...     # 必填,enrich + digest 用
+#   VOYAGE_API_KEY=pa-...            # 必填,embed 用(无则 embed 全 fail)
+#   EXA_API_KEY=...                  # 可选,启用 Exa search 源
+#   TWITTER_BEARER_TOKEN=...         # 可选,启用 Twitter 源
 ```
+
+> 启动前确认主机 `:3000` 没被其他 `next dev` 占着(`lsof -nP -iTCP:3000 -sTCP:LISTEN`),否则 docker frontend 转发会被截胡导致全部路由 404。
 
 ---
 
@@ -126,9 +137,9 @@ docker compose exec postgres psql -U hub -d hub \
 
 ---
 
-## 9. 全部绿了,签字删 legacy(收 013 #3-5, #15-16, #18)
+## 9. 删 legacy(已完成于 2026-05-17,留作 runbook 参考)
 
-**到这一步才能做**。前提是 1-8 步都通,且业务跑了至少 24h 没问题。
+前提:1-8 步全通,且业务跑了至少 24h 没问题。
 
 ```bash
 git rm -r backend/legacy/
@@ -138,7 +149,7 @@ git commit -m "013 decommission-old: physically remove backend/legacy/"
 git push
 ```
 
-删除前已确认(本次会话已修):
+删除前已确认:
 - `backend/app/ingestion/run.py:load_config` 不再 fallback 读 legacy yaml
 - `backend/app` 全量 grep `legacy` 只剩 docstring 标注,无 import / runtime 引用
 

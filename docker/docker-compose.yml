@@ -1,6 +1,8 @@
 services:
   postgres:
-    image: pgvector/pgvector:pg16
+    build:
+      context: ./postgres
+      dockerfile: Dockerfile
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-hub}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hub}
@@ -70,6 +72,8 @@ services:
       migrate:
         condition: service_completed_successfully
     entrypoint: ["python", "-m", "app.scheduler"]
+    healthcheck:
+      disable: true
 
 volumes:
   pgdata:

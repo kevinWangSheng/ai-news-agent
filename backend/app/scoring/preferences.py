@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import Integer, and_, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Entity, Interaction, Item, ItemEntity, ItemTopic, Topic
@@ -42,7 +42,7 @@ async def compute_tag_signals(session: AsyncSession, window_days: int = 30) -> d
                 Topic.slug,
                 func.count(Interaction.id).label("total"),
                 func.sum(
-                    func.cast(Interaction.action.in_(KEEP_ACTIONS), func.Integer)
+                    cast(Interaction.action.in_(KEEP_ACTIONS), Integer)
                 ).label("kept"),
             )
             .select_from(Interaction)
@@ -67,7 +67,7 @@ async def compute_entity_signals(session: AsyncSession, window_days: int = 30) -
             select(
                 Entity.slug,
                 func.count(Interaction.id),
-                func.sum(func.cast(Interaction.action.in_(KEEP_ACTIONS), func.Integer)),
+                func.sum(cast(Interaction.action.in_(KEEP_ACTIONS), Integer)),
             )
             .select_from(Interaction)
             .join(Item, Item.id == Interaction.item_id)
@@ -89,7 +89,7 @@ async def compute_source_signals(session: AsyncSession, window_days: int = 30) -
             select(
                 Item.source_name,
                 func.count(Interaction.id),
-                func.sum(func.cast(Interaction.action.in_(KEEP_ACTIONS), func.Integer)),
+                func.sum(cast(Interaction.action.in_(KEEP_ACTIONS), Integer)),
             )
             .select_from(Interaction)
             .join(Item, Item.id == Interaction.item_id)

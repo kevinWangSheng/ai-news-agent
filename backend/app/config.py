@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     anthropic_api_key: str | None = None
     voyage_api_key: str | None = None
     openai_api_key: str | None = None
+    ark_api_key: str | None = None
+    ark_base_url: str = "https://ark.cn-beijing.volces.com/api/coding/v3"
+    ark_embed_model: str = "doubao-embedding-vision"
     exa_api_key: str | None = None
     twitter_bearer_token: str | None = None
 

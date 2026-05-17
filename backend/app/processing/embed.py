@@ -1,4 +1,4 @@
-"""Stage 3: embedding (Voyage primary, OpenAI fallback to 1024-d slice)."""
+"""Stage 3: embedding (ARK / Voyage / OpenAI fallback to 1024-d)."""
 from __future__ import annotations
 
 import logging
@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.db.models import Item
-from app.llm.client import get_openai, get_voyage
+from app.llm.client import get_ark, get_openai, get_voyage
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,9 @@ async def embed_one(session: AsyncSession, item: Item) -> bool:
         item.processing_status = "embedded"
         return True
 
-    vec = await _voyage(text)
+    vec = await _ark(text)
+    if vec is None:
+        vec = await _voyage(text)
     if vec is None:
         vec = await _openai(text)
     if vec is None:
@@ -31,6 +33,21 @@ async def embed_one(session: AsyncSession, item: Item) -> bool:
     item.embedding = vec
     item.processing_status = "embedded"
     return True
+
+
+async def _ark(text: str) -> list[float] | None:
+    s = get_settings()
+    if not s.ark_api_key:
+        return None
+    try:
+        client = get_ark()
+        resp = await client.embeddings.create(
+            model=s.ark_embed_model, input=text, dimensions=EMBED_DIM
+        )
+        return list(resp.data[0].embedding)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("ark embed failed: %s", exc)
+        return None
 
 
 async def _voyage(text: str) -> list[float] | None:

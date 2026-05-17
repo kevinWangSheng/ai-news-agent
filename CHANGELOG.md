@@ -65,3 +65,28 @@ verify 结果(均通过):
 | 8(附带) | scheduler 自动跑 github cron | 期间 151 条 github 条目入库,012 调度器实战通过 |
 
 13 修补完成:`git rm -r backend/legacy/`(代码层面无 import / runtime 引用,3 个手动 verify 全通后签字)
+
+### v2.1.0 ARK 火山方舟 embedding 接入(2026-05-17)
+
+替代 Voyage 作为 primary embedding 提供商,链路:**ARK → Voyage → OpenAI**。
+
+**为什么**:Voyage 需翻墙 + 付费;火山方舟提供 Doubao 系列 embedding 国内直连免代理,且与 OpenAI API 完全兼容。
+
+**接入细节**:
+
+- 端点 `https://ark.cn-beijing.volces.com/api/coding/v3/embeddings`(`/api/coding` 网关自带模型开通,免 ARK 控制台 activate)
+- 模型 `doubao-embedding-vision`(自动解析到 `-251215` 最新版,文本输入也 OK)
+- `dimensions=1024` 参数原生支持,直接对齐 DB schema 的 `Vector(1024)`,无需客户端切片
+
+**改动**:
+
+- `backend/app/config.py`:加 `ark_api_key` / `ark_base_url` / `ark_embed_model` 三项 settings
+- `backend/app/llm/client.py`:加 `get_ark()` 单例(OpenAI client + 自定义 base_url)
+- `backend/app/processing/embed.py`:加 `_ark()` 函数,在 `embed_one` 中放在 `_voyage` / `_openai` 之前
+- `docker/.env.example`:加 `ARK_API_KEY` + 注释里说明 `ARK_BASE_URL` / `ARK_EMBED_MODEL` 默认值
+
+**端到端 verify**:
+
+- 320 条 enriched → embed → ready 全部通过,ARK 命中率 99.7%(1 条 500 重试后成功)
+- 单条 latency 约 200ms,batch 50 条用时 ~5s
+- 真实 final_score 分布:9-10 分 124 条,10+(满分)94 条,集中在 MCP / Agent / LangChain 相关 GitHub 项目

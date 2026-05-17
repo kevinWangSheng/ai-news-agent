@@ -113,7 +113,26 @@ openspec/
 
 ---
 
-## 当前状态
+## 当前状态(2026-05-17)
 
-- 全部 changes:`Status: pending`
-- 现仓库还是 `ai-news-agent` 旧形态,001-foundation 的第一步就是改名 / 改结构
+**v1 → v2.1.0 已完成**:000-013 + 014(规划)+ 015(规划)+ 016/017(轮廓)
+
+- 000-013 全部 `Status: completed (2026-05-17)`,代码已 commit + push
+- 014 `Status: pending` — Web Source Coverage,**今晚 coding agent 跑**
+- 015 `Status: pending` — Consumption UX,**今晚 coding agent 跑**(014 之后)
+- 016 `Status: planned-outline` — Second Brain,015 dogfood 几天后细化
+- 017 `Status: planned-sketch` — Polish + Mobile,015/016 落地后再细化
+
+## 下一波依赖
+
+```
+014 web-source-coverage  ← 解锁 17 个 web 源(Anthropic / Claude / Cursor / ...)
+ ↓
+015 consumption-ux       ← Markdown 渲染 + Inbox 筛选 + 注意力层级 + 键盘流 + 撤销 + 批量
+ ↓
+[ dogfood 几天 ]
+ ↓
+016 second-brain         ← LLM 二次加工 / 关注主题 / mute boost / trending / ask
+ ↓
+017 polish-style-mobile  ← 风格选定 / 小屏 / Reader Mode / 备份导出 / onboarding
+```

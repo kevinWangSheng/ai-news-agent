@@ -34,6 +34,7 @@ def build_scheduler() -> AsyncIOScheduler:
     sched.add_job(jobs.scoring_recompute, CronTrigger.from_crontab("0 */2 * * *"), id="scoring_recompute", replace_existing=True)
     sched.add_job(jobs.digest_daily, CronTrigger.from_crontab("30 6 * * *"), id="digest_daily", replace_existing=True)
     sched.add_job(jobs.digest_weekly, CronTrigger.from_crontab("30 6 * * MON"), id="digest_weekly", replace_existing=True)
+    sched.add_job(jobs.ops_daily_check, CronTrigger.from_crontab("45 6 * * *"), id="ops_daily_check", replace_existing=True)
     return sched
 
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.3.2 (2026-05-18) — Ops daily check
+
+- 新增 `python -m app.ops.daily_check`:输出内容链路体检日志,覆盖总量/ready/failed/non-ready/24h 新增/raw top50 分布/Top-Official-Repo 三栏来源。
+- scheduler 新增 `ops_daily_check` job,每天 06:45 UTC 自动跑一次;启动后 job 总数为 11。
+- 实测 scheduler 自动触发成功:`ops_daily_check totals total=793 ready=793 failed=0 non_ready=0 scored=793`。
+
 ## v2.3.1 (2026-05-18) — Ranking lanes v1
 
 在 change 014 内容抓取清零 failed 后,新增首页 ranking v1:把“分数”和“版面编排”分开。

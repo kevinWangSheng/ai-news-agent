@@ -104,3 +104,17 @@ async def digest_daily():
 async def digest_weekly():
     from app.scheduler.digest_gen import generate_digest
     return await generate_digest(period="weekly")
+
+
+@track_run("ops_daily_check")
+async def ops_daily_check():
+    from app.ops.daily_check import run_check
+
+    report = await run_check()
+    return {
+        "total": report["items"]["total"],
+        "ready": report["items"]["processing_status"].get("ready", 0),
+        "failed": report["issues"]["failed_count"],
+        "non_ready": report["issues"]["non_ready_count"],
+        "new": report["items"]["new"],
+    }

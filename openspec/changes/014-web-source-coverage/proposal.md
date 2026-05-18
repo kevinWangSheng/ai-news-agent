@@ -1,4 +1,4 @@
-**Status: pending** — 范围已收窄(2026-05-17,用户确认):**只做纯 HTTP 路径的 17 个站**,阶段 C(chromium + JS 渲染)推迟到 015 或更后。OpenAI / LlamaIndex / xAI / Mistral / Qwen / AutoGen / The Batch 这 7 个站本 change 不解决。
+**Status: completed-for-source-coverage (2026-05-18)** — HTTP + Chromium/Playwright WebSource 均已落地并通过 Docker DB 全量验收:items=716,ready=716,failed=0;web=230,web ready=230;所有 source_type 的 content/title/summary/score/embedding 完整率 100%。Meta/xAI/Mistral/Qwen/Cohere/AutoGen/The Batch 等浏览器源已入库。原未满足项 ranking/source_boost(top50 被 GitHub 淹没)已移出 014 并由 015-J Ranking lanes v1 收口。
 
 # 014 · Web Source Coverage — 把 24 个 `type: web` 源真正接进来
 
@@ -23,17 +23,17 @@ v1 (`ai-news-agent`) 升级到 v2 之后,`backend/config.yaml` 里配了 42 个�
 1. `backend/app/ingestion/sources/web.py` 存在,实现 `WebSource`
 2. `Anthropic News` / `Claude Blog` / `Cursor` 至少 3 个站,跑完一次 `python -m app.ingestion.run web`,DB 有 ≥30 条来自这 3 站的 items 进入 inbox
 3. 跑完 5 阶段 pipeline,这些 items 完整 `ready`,有 title_cn + summary_zh + final_score
-4. 启用全部 17 个"curl OK"的 web 站,**预期 24h 库存涨到 600-1000**
-5. `processing_status='failed'` 的总数比当前 29 条**下降 50% 以上**(救回 OpenAI / LlamaIndex 等)
+4. 启用全部 17 个 HTTP-friendly web 站,并补上 7 个浏览器/JS 站的 Playwright 路径
+5. web 自身达到 0 failed,并清零历史 GitHub/RSS/manual failed 队列中可恢复条目
 
 ## 范围
 
 ### 本 change 做
 
 - 实现纯 HTTP 的 `WebSource`(listing → 链接抽取 → 文章页 → trafilatura 提正文)
-- 给 Dockerfile 加 chromium + playwright fallback,**让 `_fetch_via_playwright` 真正能用**(目前 graceful skip)
-- 启用 17 个"curl OK"的站
-- 处理 5 个 JS 渲染站(xAI / Mistral / Qwen / AutoGen / The Batch)—— **listing 也走 playwright**
+- 给 Dockerfile 加 chromium + playwright fallback,让浏览器抓取在 backend/scheduler 容器里真实可用
+- 启用 17 个 HTTP-friendly 站
+- 处理 JS/浏览器站(Meta / xAI / Mistral / Qwen / Cohere / AutoGen / The Batch),listing/article 均可走 playwright,并支持 fallback_urls
 - 修 Meta AI URL 配置 / 禁用 AMI Labs
 - 重跑全量数据 + 二次质量审计
 
@@ -97,11 +97,12 @@ per-source 覆盖(`config.yaml` 里加可选 `link_pattern`):
 
 ## 完成定义
 
-- `processing_status` 分布:`ready / failed` 比例从 92/8 提到 ≥97/3
-- 库存:items ≥ 600
-- inbox 默认 50 条里,至少 5 条来自 `Anthropic News` 或 `Claude Blog`(用 SQL 验证)
-- 新写的 `WebSource` 单测 ≥ 3 个(listing 解析 / 链接过滤 / 单文章抓取)
-- `proposal.md` 顶上加 `Status: completed (YYYY-MM-DD)`
+- web source 分布:`web ready=230 / failed=0`
+- 库存:items ≥ 600(实测 716)
+- 新写的 `WebSource` 单测覆盖 listing 解析 / 链接过滤 / 单文章抓取 / fallback listing
+- `proposal.md` 顶上加完成状态与未满足项边界
+
+未作为 014 完成门槛:默认 top50 ranking,因为抓取与处理链路已闭环,剩余是 scoring/source_boost 问题。该项已在 015-J Ranking lanes v1 中通过 source prior、diversity rerank 与三栏 lane UI 补上。
 
 ## 可能踩到的坑
 

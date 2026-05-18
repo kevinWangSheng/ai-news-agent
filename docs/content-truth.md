@@ -7,6 +7,8 @@
 >
 > 数据采样日期 2026-05-17,基于 369 条已入库 items + config.yaml 实测。
 
+> 2026-05-18 update: change 014 已完成 HTTP + Chromium/Playwright `WebSource` Docker DB 验收并清零历史 failed：items=716，ready=716，failed=0；所有 source_type 的 `content_md / title_cn / summary_zh / final_score / embedding` 完整率均 100%。web=230，web ready=230，核心源已入库并 ready：Anthropic 14、Claude 20、Cursor 10、Meta 12、xAI 10、Mistral 9、Qwen 5、Cohere 10、AutoGen 10、The Batch 7。剩余问题不在抓取/处理层：按当前 final_score top50 仍全是 GitHub，需要后续 source_boost/ranking 修正。本文下方原始审计保留为变更前基线。
+
 ---
 
 ## 1. 源覆盖 —— 配了 42 个,17 个 critical/high 没在跑

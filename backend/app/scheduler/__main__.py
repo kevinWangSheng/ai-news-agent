@@ -25,6 +25,7 @@ def build_scheduler() -> AsyncIOScheduler:
         job_defaults={"misfire_grace_time": 300, "coalesce": True},
     )
     sched.add_job(jobs.ingestion_rss, CronTrigger.from_crontab("5 * * * *"), id="ingestion_rss", replace_existing=True)
+    sched.add_job(jobs.ingestion_web, CronTrigger.from_crontab("55 * * * *"), id="ingestion_web", replace_existing=True)
     sched.add_job(jobs.ingestion_github, CronTrigger.from_crontab("15 * * * *"), id="ingestion_github", replace_existing=True)
     sched.add_job(jobs.ingestion_exa_search, CronTrigger.from_crontab("25 */2 * * *"), id="ingestion_exa_search", replace_existing=True)
     sched.add_job(jobs.ingestion_twitter, CronTrigger.from_crontab("35 */2 * * *"), id="ingestion_twitter", replace_existing=True)

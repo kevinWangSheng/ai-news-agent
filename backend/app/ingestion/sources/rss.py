@@ -62,6 +62,8 @@ def build_rss_sources(cfg: dict) -> list[RssSource]:
     tech = cfg.get("tech_sources", {})
     for bucket_name in ("official_blogs", "expert_blogs", "aggregator_sources", "research_sources"):
         for entry in tech.get(bucket_name, []) or []:
+            if entry.get("type") != "rss" or entry.get("disabled") is True:
+                continue
             urls = [entry["url"]] if entry.get("url") else []
             urls += entry.get("fallback_urls", []) or []
             sources.append(

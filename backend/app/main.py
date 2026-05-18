@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
-from app.api.routes import digests, entities, health, ingest, items, search, sources, topics
+from app.api.routes import authors, digests, entities, health, ingest, items, search, sources, topics
 from app.config import get_settings
 from app.db.session import get_engine
 
@@ -37,7 +37,7 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    for r in (health, ingest, items, search, topics, entities, digests, sources):
+    for r in (health, ingest, items, search, topics, entities, authors, digests, sources):
         app.include_router(r.router)
     return app
 

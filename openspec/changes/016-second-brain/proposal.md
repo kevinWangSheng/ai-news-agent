@@ -1,5 +1,9 @@
 **Status: planned-outline** — 等 015 落地 + 用户 dogfood 几天后基于真实痛点细化 tasks.md / design.md
 
+## 2026-05-17 当前状态
+
+未开始实现。今晚只把 015 的 reader/inbox dogfood 能力推进到代码可构建状态;016 仍保持后续范围,等 015 真实使用几天后再拆 tasks/design,避免凭空设计。
+
 # 016 · Second Brain — 从 Reader 升级到主动协助
 
 ## 背景

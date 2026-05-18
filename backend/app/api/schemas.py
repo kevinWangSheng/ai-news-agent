@@ -1,6 +1,6 @@
 """Pydantic response/request models."""
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -24,6 +24,8 @@ class ItemOut(BaseModel):
     final_score: float | None
     tags: list[str] | None
     user_note: str | None
+    viewed_at: datetime | None = None
+    score_breakdown: dict[str, Any] | None = None
 
 
 class ItemDetail(ItemOut):
@@ -32,6 +34,11 @@ class ItemDetail(ItemOut):
     topics: list["TopicOut"] = Field(default_factory=list)
     entities: list["EntityOut"] = Field(default_factory=list)
     related_items: list[ItemOut] = Field(default_factory=list)
+
+
+class BulkPatchRequest(BaseModel):
+    ids: list[int]
+    action: Literal["kept", "archived", "trashed"]
 
 
 class ItemPatch(BaseModel):
@@ -121,6 +128,12 @@ class SearchResponse(BaseModel):
 class Page(BaseModel):
     items: list[ItemOut]
     next_cursor: str | None = None
+
+
+class ItemLanes(BaseModel):
+    top_signals: list[ItemOut]
+    official_updates: list[ItemOut]
+    repo_radar: list[ItemOut]
 
 
 class SourceOut(BaseModel):

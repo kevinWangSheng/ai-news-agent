@@ -1,8 +1,6 @@
 """Digests — periodic curated picks (011 handles deeper digest generation)."""
 from __future__ import annotations
 
-from datetime import date
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession

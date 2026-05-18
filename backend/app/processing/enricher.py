@@ -102,17 +102,62 @@ async def _call_claude(payload: str) -> dict[str, Any] | None:
         logger.exception("claude enrich call failed: %s", exc)
         return None
     text = "".join(b.text for b in resp.content if hasattr(b, "text"))
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        start, end = text.find("{"), text.rfind("}")
-        if start >= 0 and end > start:
-            try:
-                return json.loads(text[start : end + 1])
-            except json.JSONDecodeError:
-                pass
+    parsed = _parse_json_object(text)
+    if parsed is not None:
+        return parsed
+    repaired = await _repair_claude_json(client, text)
+    if repaired is not None:
+        return repaired
     logger.warning("could not parse claude JSON: %s", text[:200])
     return None
+
+
+def _parse_json_object(text: str) -> dict[str, Any] | None:
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        lines = cleaned.splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip().startswith("```"):
+            lines = lines[:-1]
+        cleaned = "\n".join(lines).strip()
+    candidates = [cleaned]
+    start, end = cleaned.find("{"), cleaned.rfind("}")
+    if start >= 0 and end > start:
+        candidates.append(cleaned[start : end + 1])
+
+    for candidate in candidates:
+        try:
+            parsed = json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, dict):
+            return parsed
+    return None
+
+
+async def _repair_claude_json(client: Any, text: str) -> dict[str, Any] | None:
+    try:
+        resp = await client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=2000,
+            system="你是 JSON 修复器。只输出严格合法 JSON object，不要 Markdown，不要解释。",
+            messages=[
+                {
+                    "role": "user",
+                    "content": (
+                        "把下面这段疑似 JSON 修复为严格合法 JSON。"
+                        "保持原有字段和值，必要时把字符串内部裸双引号改成中文引号或转义。\n\n"
+                        f"{text[:6000]}"
+                    ),
+                }
+            ],
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("claude JSON repair call failed: %s", exc)
+        return None
+    repaired_text = "".join(b.text for b in resp.content if hasattr(b, "text"))
+    return _parse_json_object(repaired_text)
 
 
 async def _link_topics_entities(session: AsyncSession, item: Item, parsed: dict) -> None:

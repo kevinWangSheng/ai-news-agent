@@ -1,6 +1,5 @@
 """Unit-level enricher test that mocks Claude to return fixed JSON."""
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -102,3 +101,23 @@ async def test_enricher_archives_on_exclude(monkeypatch):
     assert "image generation" in item.score_breakdown["exclude_keywords"]
 
     get_settings.cache_clear()
+
+
+def test_parse_json_object_accepts_fenced_json():
+    text = """```json
+{"title_cn":"标题","tags":["agent"]}
+```"""
+
+    assert enricher._parse_json_object(text) == {"title_cn": "标题", "tags": ["agent"]}
+
+
+def test_parse_json_object_extracts_surrounding_text():
+    text = 'Here is JSON:\n{"title_cn":"标题","quality_score":8}\nThanks'
+
+    assert enricher._parse_json_object(text) == {"title_cn": "标题", "quality_score": 8}
+
+
+def test_parse_json_object_rejects_invalid_json():
+    text = '{"summary_zh":"之前的"不干预"政策"}'
+
+    assert enricher._parse_json_object(text) is None

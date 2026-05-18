@@ -113,22 +113,25 @@ openspec/
 
 ---
 
-## 当前状态(2026-05-17)
+## 当前状态(2026-05-18)
 
-**v1 → v2.1.0 已完成**:000-013 + 014(规划)+ 015(规划)+ 016/017(轮廓)
+**v1 → v2.3.1 已完成验证并收口**:000-013 + 014 source coverage + 015 consumption UX + 015-J ranking lanes;016/017/018 保持后续规划。
 
 - 000-013 全部 `Status: completed (2026-05-17)`,代码已 commit + push
-- 014 `Status: pending` — Web Source Coverage,**今晚 coding agent 跑**
-- 015 `Status: pending` — Consumption UX,**今晚 coding agent 跑**(014 之后)
+- 014 `Status: completed-for-source-coverage (2026-05-18)` — Web Source Coverage 已完成;DB 实跑 ready=716/716、failed=0
+- 015 `Status: completed + ranking-lanes-v1 (2026-05-18)` — Consumption UX 已完成;补充完成 Ranking lanes v1,默认 Inbox 三栏排布已可用
 - 016 `Status: planned-outline` — Second Brain,015 dogfood 几天后细化
 - 017 `Status: planned-sketch` — Polish + Mobile,015/016 落地后再细化
+- 018 `Status: planned-outline` — Ops and Tooling,可与 016/017 平行推进
 
 ## 下一波依赖
 
 ```
-014 web-source-coverage  ← 解锁 17 个 web 源(Anthropic / Claude / Cursor / ...)
+014 web-source-coverage  ✓ 解锁 web 源 + 浏览器抓取 + failed 清零
  ↓
-015 consumption-ux       ← Markdown 渲染 + Inbox 筛选 + 注意力层级 + 键盘流 + 撤销 + 批量
+015 consumption-ux       ✓ Markdown 渲染 + Inbox 筛选 + 注意力层级 + 键盘流 + 撤销 + 批量
+ ↓
+015-J ranking-lanes      ✓ source prior + diversity rerank + Top/Official/Repo 三栏
  ↓
 [ dogfood 几天 ]
  ↓

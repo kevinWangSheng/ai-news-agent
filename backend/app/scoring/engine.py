@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from app.config import get_settings
+from app.ranking import source_prior as compute_source_prior
 from app.scoring.preferences import Signal
 
 
@@ -14,6 +15,7 @@ class ScoreBreakdown:
     tag_boost: float
     entity_boost: float
     source_boost: float
+    source_prior: float
     time_decay: float
     final: float
     cold_start: bool
@@ -25,6 +27,7 @@ class ScoreBreakdown:
             "tag_boost": self.tag_boost,
             "entity_boost": self.entity_boost,
             "source_boost": self.source_boost,
+            "source_prior": self.source_prior,
             "time_decay": self.time_decay,
             "final": self.final,
             "cold_start": self.cold_start,
@@ -75,6 +78,7 @@ def score_item(
         if cold_start or source_sig is None or source_sig.count == 0
         else max(-1.0, min(1.0, source_sig.keep_rate * 2 - 1))
     )
+    source_prior = compute_source_prior(item.source_type, item.source_name)
     time_decay = _time_decay(item.published_at)
 
     # focus hit floor: lift base to 6 when matched
@@ -89,13 +93,17 @@ def score_item(
         if focus_hits:
             base = max(base, 6.0)
 
-    final = max(0.0, min(10.0, base + tag_boost + entity_boost + source_boost + time_decay))
+    final = max(
+        0.0,
+        min(10.0, base + tag_boost + entity_boost + source_boost + source_prior + time_decay),
+    )
 
     return ScoreBreakdown(
         base=base,
         tag_boost=tag_boost,
         entity_boost=entity_boost,
         source_boost=source_boost,
+        source_prior=source_prior,
         time_decay=time_decay,
         final=final,
         cold_start=cold_start,

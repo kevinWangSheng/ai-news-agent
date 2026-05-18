@@ -12,7 +12,6 @@ from typing import Sequence
 
 import yaml
 
-from app.config import get_settings
 from app.db.session import get_session_factory
 from app.ingestion.base import Source
 from app.ingestion.service import IngestionService
@@ -20,6 +19,7 @@ from app.ingestion.sources.chinese import ChineseSource
 from app.ingestion.sources.exa_search import ExaSearchSource
 from app.ingestion.sources.github import GitHubSource
 from app.ingestion.sources.rss import build_rss_sources
+from app.ingestion.sources.web import build_web_sources
 from app.ingestion.sources.twitter import TwitterSource
 
 logger = logging.getLogger(__name__)
@@ -42,6 +42,7 @@ def load_topics() -> dict:
 
 def build_sources(cfg: dict, topics: dict) -> dict[str, list[Source]]:
     rss = build_rss_sources(cfg)
+    web = build_web_sources(cfg)
 
     gh_topics = [t["slug"] for t in topics["topics"]][:10]
     github = [GitHubSource(topics=gh_topics)]
@@ -71,6 +72,7 @@ def build_sources(cfg: dict, topics: dict) -> dict[str, list[Source]]:
 
     return {
         "rss": rss,
+        "web": web,
         "github": github,
         "exa_search": exa,
         "twitter": twitter,

@@ -1,4 +1,25 @@
-**Status: pending**
+**Status: completed + ranking-lanes-v1 (2026-05-18)**
+
+## 2026-05-17 当前状态
+
+今晚已落地并真实验收 015 的核心可用链路:Markdown 详情渲染、source tier/阅读时长、inbox URL 筛选与今日/更早分段、高分卡片视觉权重、score breakdown/cold_start 可见、键盘流、5 秒撤销 toast、批量动作、全局搜索页、作者页、详情笔记、后端 since/min_score/tier/bulk/viewed_at/API authors。
+
+已验证:`cd frontend && pnpm typecheck`、`cd frontend && pnpm build`、`cd backend && uv run ruff check ...`、`python3 -m compileall -q backend/app`、Docker backend/frontend rebuild、curl API 验收、headless Chrome 浏览器验收。截图在 `docs/screenshots/015/`。
+
+补充修复:`/api/search` query embedding 已改为 ARK → Voyage → OpenAI,避免有 ARK key 时仍优先撞 Voyage 401。
+
+014/015/015-J 已按同一稳定基线收口;016/017 仍按原计划等 015 使用反馈后再细化。
+
+## 2026-05-18 补充状态 — Ranking lanes v1
+
+014 完成后遗留的核心体验问题是:内容已经抓到,但默认 Top 仍可能被 GitHub/repo 类内容占满,官方与专家内容在阅读界面里没有稳定曝光位。该问题已在 015 补充收口:
+
+- scoring 增加 `source_prior`,让 official/expert/aggregator/GitHub 的默认权重更符合阅读价值。
+- `GET /api/items?sort=score` 增加 diversity rerank,避免单一 source/type 占满默认 top。
+- 新增 `GET /api/items/lanes`,把默认消费面拆为 `top_signals` / `official_updates` / `repo_radar`。
+- Inbox 默认状态切到三栏 lane UI;筛选条件变化后仍回到原有列表/虚拟滚动模式。
+
+验证:backend 相关 tests 14 passed + ruff passed;frontend typecheck passed;Docker backend/frontend rebuild;`/api/items/lanes` 返回 200;项目内 Playwright headless 截图确认 `/inbox` 已渲染三栏。工具层的 MCP Playwright/Computer Use 权限失败已确认不是应用失败。
 
 # 015 · Consumption UX — 渲染 + 浏览 + 注意力
 

@@ -13,13 +13,12 @@ from sqlalchemy import (
     Integer,
     Numeric,
     PrimaryKeyConstraint,
-    String,
     Text,
     UniqueConstraint,
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 

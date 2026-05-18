@@ -1,11 +1,69 @@
 # Changelog
 
-## v2.2.0-planning (2026-05-17) — 下一波规划落地
+## v2.3.1 (2026-05-18) — Ranking lanes v1
 
-只是规划,没有代码改动。基于 v2.1.0 实跑发现的内容缺口 + UX 痛点,把后续工作拆成 5 个 change 包:
+在 change 014 内容抓取清零 failed 后,新增首页 ranking v1:把“分数”和“版面编排”分开。
 
-- `openspec/changes/014-web-source-coverage/`(`pending`,执行第一)— 实现 `WebSource` 接入 17 个 `type:web` 站(Anthropic / Claude / Cursor / LangChain Blog 等),chromium 路径推迟
-- `openspec/changes/015-consumption-ux/`(`pending`,执行第二)— Markdown 真渲染 / inbox 筛选栏 / 注意力分层(score 变体 / today 分段 / breakdown 可见 / cold_start 警告) / 键盘流 J/K/S/E/X / Undo toast / 批量选 / 笔记 UI / 虚拟滚动
+- scoring 增加 `source_prior` breakdown:official +0.45, expert +0.25, aggregator +0.10, GitHub -0.45。
+- `/api/items?sort=score` 增加 diversity rerank,避免单一 source/type 占满 top 列表。
+- 新增 `/api/items/lanes`:返回 `top_signals` / `official_updates` / `repo_radar` 三条 lane。
+- lane 内加入 source rotation:official lane 单源最多约 2 条;repo lane 单 topic/source 最多约 3 条。
+- 前端 API hook 新增 `useItemLanes`;Inbox 默认状态已改成 lane 版,显示 Top Signals / Official Updates / Repo Radar 三栏。筛选条件变化后回到原列表模式。
+
+实测(当前 DB items=724):
+
+- `sort=score&limit=50`:web 19 / github 18 / rss 13。
+- `/api/items/lanes?limit=20`:Top Signals 为跨源冠军榜;Official Updates 为 web 15 / rss 5;Repo Radar 为 GitHub 20 且 source 分散。
+
+验证:`cd backend && uv run pytest -q tests/scoring/test_engine.py tests/scoring/test_ranking.py tests/api/test_smoke.py`;backend ruff passed;`cd frontend && pnpm typecheck` passed;Docker backend/frontend rebuild;项目内 Playwright headless 截图确认 `/inbox` 三栏渲染。
+
+待定:Top Signals 仍偏 RSS/GitHub,但 Official Updates 已承载官方源;下一步重点转为 UI 信息密度、lane 去重/折叠、真实 dogfood 后的权重调参。
+
+## v2.3.0 (2026-05-17) — Consumption UX 验收通过
+
+change 015 的核心消费体验已推进完成并通过真实容器 + headless Chrome 验收。
+
+- 详情页:Markdown 真渲染、代码高亮/copy、score breakdown、source tier、阅读时长、我的笔记。
+- Inbox:sticky 筛选栏、URL 状态、今日/更早分段、高分视觉权重、已读暗化、cold_start 横幅、键盘流、撤销 toast、批量动作、skeleton、react-window 虚拟滚动。
+- 后端:items 支持 `since`/`tier`/`min_score`/`sort`,新增 bulk patch、viewed_at 聚合、authors API。
+- 搜索/导航:顶栏跳 `/search`,新增搜索结果页和作者页。
+
+验证:`cd frontend && pnpm typecheck`,`cd frontend && pnpm build`,`cd backend && uv run ruff check ...`,`python3 -m compileall -q backend/app`;Docker backend/frontend rebuild;curl full=469 filtered=37;headless Chrome 跑通 inbox/detail/search/note/bulk;截图见 `docs/screenshots/015/`。
+
+补充: `/api/search` query embedding 改为 ARK → Voyage → OpenAI,避免有 ARK key 时仍优先打 Voyage 401。
+
+
+## v2.2.0 (2026-05-17/18) — WebSource + Browser 覆盖落地
+
+change 014 已完成 source coverage 层面的闭环:HTTP 快路径 + Chromium/Playwright 浏览器路径均已落地,`backend/config.yaml` 的 `type: web` 官方源不再静默空跑。
+
+已完成:
+
+- 新增 `backend/app/ingestion/sources/web.py`:listing → same-host `link_pattern` 抽链接 → article → trafilatura markdown → RawItem
+- `build_rss_sources` 只吃 `type: rss`;`build_sources` 新增 `web` kind;scheduler 新增 `ingestion_web` 每小时 `:55` 错峰跑
+- `backend/Dockerfile` runtime 安装 Chromium 依赖 + `python -m playwright install chromium`,backend/scheduler 容器内可真实跑 Playwright
+- `WebSource` 支持 `js_render: true` 与 `fallback_urls`;Qwen 主入口无链接时自动 fallback 到 `qwenlm.github.io/blog/`
+- config 启用 Anthropic / Claude / Cursor 等 HTTP 源,并启用 Meta / xAI / Mistral / Qwen / Cohere / AutoGen / The Batch 等浏览器源;AMI Labs 暂 disabled
+- GitHub extract 失败时用 repo title/source_meta 兜底;RSS/manual article 抓取失败时使用 feed summary/title 兜底;trafilatura 失败时增加 `article/main/.email-body` DOM fallback,修复 Buttondown/AINews 完整正文抽取;enricher 增加 Claude 坏 JSON 修复 fallback
+- 新增/扩展 `tests/ingestion/test_web_source.py` 与 `tests/processing/test_enricher.py`
+
+验证:
+
+- `cd backend && uv run pytest -q tests/ingestion/test_web_source.py tests/ingestion/test_rss.py tests/processing/test_extract.py tests/processing/test_enricher.py` → 18 passed
+- 触达文件 ruff passed
+- 容器 Playwright smoke:打开 `https://cohere.com/blog`,title 正常,HTML length 332968
+- Docker DB 实跑后:items=716,ready=716,failed=0;web=230,web ready=230,web failed=0
+- 字段完整率:所有 source_type 的 `title_cn / summary_zh / final_score / content_md / embedding` 均 100%;AINews 两条短正文由 295/328 字符重抓为 191k/174k 字符
+- 浏览器源入库:Meta 12、xAI 10、Mistral 9、Qwen 5、Cohere 10、AutoGen 10、The Batch 7,全部 ready
+
+014 当时移出的 ranking/source_boost 问题已在 v2.3.1 / 015-J 中收口:默认 score 排序加入 diversity rerank,并新增三栏 lane UI。
+
+## v2.2.0-planning (2026-05-17) — 下一波规划拆分
+
+基于 v2.1.0 实跑发现的内容缺口 + UX 痛点,把后续工作拆成 5 个 change 包:
+
+- `openspec/changes/014-web-source-coverage/`(`completed-for-source-coverage`)— HTTP + Chromium/Playwright `WebSource` 已接入 23 个 web source,web ready=230/230
+- `openspec/changes/015-consumption-ux/`(`completed + ranking-lanes-v1`)— Markdown 真渲染 / inbox 筛选栏 / 注意力分层(score 变体 / today 分段 / breakdown 可见 / cold_start 警告) / 键盘流 J/K/S/E/X / Undo toast / 批量选 / 笔记 UI / 虚拟滚动 / Top-Official-Repo 三栏
 - `openspec/changes/016-second-brain/`(`planned-outline`)— LLM 二次加工(ask / find-related / `/ask`)/ 关注主题 / 信源 mute boost UI / trending cluster
 - `openspec/changes/017-polish-style-mobile/`(`planned-sketch`)— 风格 5 选 1 / 手机响应 / Reader Mode / 备份导出 / onboarding / 可访问性
 - `openspec/changes/018-ops-and-tooling/`(`planned-outline`)— scheduler 健康面板 / ingestion 错误页 / 源失活报警 / hub 批量投喂

@@ -22,12 +22,14 @@ tech_sources:
       type: "web"
       priority: "critical"
       max_items: 20
+      link_pattern: "^/news/[a-z0-9-]+$"
 
     - name: "Claude Blog"
       url: "https://claude.com/blog"
       type: "web"
       priority: "critical"
       max_items: 20
+      link_pattern: "^/blog/[a-z0-9-]+$"
 
     - name: "Google AI Blog"
       url: "https://blog.google/technology/ai/rss/"
@@ -48,6 +50,8 @@ tech_sources:
       type: "web"
       priority: "critical"
       max_items: 15
+      js_render: true
+      link_pattern: "^/blog/[a-z0-9-]+/?$"
 
     - name: "xAI News"
       url: "https://x.ai/news"
@@ -56,30 +60,36 @@ tech_sources:
       type: "web"
       priority: "critical"
       max_items: 10
+      js_render: true
+      link_pattern: "^/news/[a-z0-9-]+/?$"
 
     - name: "Mistral News"
       url: "https://mistral.ai/news"
       type: "web"
       priority: "high"
       max_items: 15
+      js_render: true
+      link_pattern: "^/(news|blog)/[a-z0-9-]+/?$"
 
     # 注：DeepSeek / Perplexity 官方站无稳定 RSS 且 web 页面 JS 渲染，
     # 依赖 breaking_news 通过 Exa site: 查询覆盖
     - name: "Qwen Blog"
       url: "https://qwen.ai/blog"
       fallback_urls:
-        - "https://qwenlm.github.io/"
-        - "https://github.com/QwenLM/Qwen/releases.atom"
-        - "https://huggingface.co/Qwen/feed"
+        - "https://qwenlm.github.io/blog/"
       type: "web"
       priority: "high"
       max_items: 15
+      js_render: true
+      link_pattern: "^/blog/[a-z0-9-]+/?$"
 
     - name: "Cohere Blog"
       url: "https://cohere.com/blog"
       type: "web"
       priority: "medium"
       max_items: 10
+      js_render: true
+      link_pattern: "^/blog/[a-z0-9-]+/?$"
 
     # ===== Tier 2 Agent 生态 =====
     - name: "HuggingFace Blog"
@@ -92,6 +102,7 @@ tech_sources:
       type: "web"
       priority: "critical"
       max_items: 20
+      link_pattern: "^/blog/[a-z0-9-]+$"
 
     - name: "LlamaIndex Blog"
       url: "https://medium.com/feed/llamaindex-blog"
@@ -105,6 +116,8 @@ tech_sources:
       type: "web"
       priority: "high"
       max_items: 10
+      js_render: true
+      link_pattern: "^/latest/docs/blog/.+"
 
     # ===== 002a 新增 (2025-2026 新玩家) — URL 待 003 平移时人工校验 =====
     - name: "Thinking Machines Lab"
@@ -112,78 +125,92 @@ tech_sources:
       type: "web"
       priority: "critical"
       max_items: 15
+      link_pattern: "^/blog/[a-z0-9-]+/?$"
 
     - name: "Cognition (Devin)"
       url: "https://cognition.ai/blog"
       type: "web"
       priority: "high"
       max_items: 10
+      link_pattern: "^/blog/[a-z0-9-]+$"
 
     - name: "Cursor"
       url: "https://www.cursor.com/blog"
       type: "web"
       priority: "high"
       max_items: 10
+      link_pattern: "^/blog/[a-z0-9-]+$"
 
     - name: "Reka"
       url: "https://www.reka.ai/news"
       type: "web"
       priority: "high"
       max_items: 10
+      link_pattern: "^/(news|blog)/[a-z0-9-]+$"
 
     - name: "Liquid AI"
       url: "https://www.liquid.ai/blog"
       type: "web"
       priority: "high"
       max_items: 10
+      link_pattern: "^/blog/[a-z0-9-]+$"
 
     - name: "Sierra"
       url: "https://sierra.ai/blog"
       type: "web"
       priority: "high"
       max_items: 10
+      link_pattern: "^/blog/[a-z0-9-]+$"
 
     - name: "Glean"
       url: "https://www.glean.com/blog"
       type: "web"
       priority: "high"
       max_items: 10
+      link_pattern: "^/blog/[a-z0-9-]+$"
 
     - name: "Magic.dev"
       url: "https://magic.dev/blog"
       type: "web"
       priority: "high"
       max_items: 10
+      link_pattern: "^/blog/[a-z0-9-]+$"
 
     - name: "Browserbase"
       url: "https://www.browserbase.com/blog"
       type: "web"
       priority: "high"
       max_items: 10
+      link_pattern: "^/blog/[a-z0-9-]+$"
 
     - name: "World Labs"
       url: "https://www.worldlabs.ai/blog"
       type: "web"
       priority: "high"
       max_items: 10
+      link_pattern: "^/blog/[a-z0-9-]+$"
 
     - name: "AMI Labs (LeCun)"
       url: "https://www.amilabs.ai"
       type: "web"
       priority: "high"
       max_items: 10
+      disabled: true
+      disabled_reason: "site unavailable during change 014 verification"
 
     - name: "Manus"
       url: "https://manus.im/blog"
       type: "web"
       priority: "high"
       max_items: 10
+      link_pattern: "^/blog/[a-z0-9-]+$"
 
     - name: "Genspark"
       url: "https://www.genspark.ai/blog"
       type: "web"
       priority: "high"
       max_items: 10
+      link_pattern: "^/blog/[a-z0-9-]+$"
 
   # 知名AI研究者和博主
   expert_blogs:
@@ -198,6 +225,7 @@ tech_sources:
       url: "https://sebastianraschka.com/blog/index.html"
       type: "web"
       priority: "medium"
+      link_pattern: '^/blog/.+\.html$'
 
     - name: "Andrej Karpathy"
       url: "https://karpathy.github.io/feed.xml"
@@ -248,6 +276,8 @@ tech_sources:
       type: "web"
       priority: "medium"
       max_items: 10
+      js_render: true
+      link_pattern: "^/the-batch/.+"
 
     - name: "Import AI (Jack Clark)"
       url: "https://jack-clark.net/feed/"

@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 import httpx
 import pytest
 
@@ -37,3 +35,21 @@ async def test_rss_parses_entries(monkeypatch):
     assert items[0].url == "https://example.com/posts/1"
     assert items[0].source_type == "rss"
     assert items[0].source_name == "fake"
+
+
+def test_build_rss_sources_filters_non_rss_and_disabled():
+    from app.ingestion.sources.rss import build_rss_sources
+
+    cfg = {
+        "tech_sources": {
+            "official_blogs": [
+                {"name": "RSS", "url": "https://example.com/feed", "type": "rss"},
+                {"name": "Web", "url": "https://example.com/blog", "type": "web"},
+                {"name": "Off", "url": "https://example.com/off.xml", "type": "rss", "disabled": True},
+            ]
+        }
+    }
+
+    sources = build_rss_sources(cfg)
+
+    assert [s.name for s in sources] == ["RSS"]

@@ -9,10 +9,11 @@
 ## 来源(source_type 枚举)
 1. **manual**:用户手动投喂(bookmarklet / CLI / Web 表单)
 2. **rss**:订阅源(原 tech_agent 的官方/专家/聚合/研究/社区博客)
-3. **github**:trending / topics / rising_stars / new_projects
-4. **exa_search**:Exa/Tavily 站点限定 + 关键词搜索(原 breaking_news + ai_content)
-5. **twitter**:Exa Twitter/X 搜索(KOL + 话题 + 新发布)
-6. **chinese_platform**:掘金 / 知乎 / CSDN 搜索
+3. **web**:无 RSS 的官方博客 / 新闻页(HTTP 快路径 + Playwright fallback;listing/article → trafilatura;支持 per-source `link_pattern` / `js_render` / `fallback_urls`)
+4. **github**:trending / topics / rising_stars / new_projects
+5. **exa_search**:Exa/Tavily 站点限定 + 关键词搜索(原 breaking_news + ai_content)
+6. **twitter**:Exa Twitter/X 搜索(KOL + 话题 + 新发布)
+7. **chinese_platform**:掘金 / 知乎 / CSDN 搜索
 
 每个 source 实现统一接口:
 ```python

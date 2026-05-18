@@ -40,7 +40,7 @@ class TwitterSource:
             for handle in self.kol_accounts + self.official_accounts:
                 out += await self._search(
                     client,
-                    query=f"recent tweets",
+                    query="recent tweets",
                     since=since,
                     include_domains=[f"x.com/{handle}", f"twitter.com/{handle}"],
                     source_name=f"twitter:{handle}",
@@ -51,7 +51,7 @@ class TwitterSource:
                     query=q,
                     since=since,
                     include_domains=["x.com", "twitter.com"],
-                    source_name=f"twitter:topic",
+                    source_name="twitter:topic",
                 )
         return out
 

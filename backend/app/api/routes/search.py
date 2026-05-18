@@ -6,20 +6,40 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas import FacetCount, ItemOut, SearchResponse
-from app.db.models import Entity, Item, ItemEntity, ItemTopic, Topic
+from app.db.models import Item
 from app.db.session import get_db
-from app.llm.client import get_voyage
+from app.config import get_settings
+from app.llm.client import get_ark, get_openai, get_voyage
 
 router = APIRouter(prefix="/api/search", tags=["search"])
 
 
 async def _embed_query(q: str) -> list[float] | None:
-    try:
-        client = get_voyage()
-        resp = await client.embed([q], model="voyage-3", input_type="query")
-        return list(resp.embeddings[0])
-    except Exception:
-        return None
+    """Embed a search query with the same provider order as processing: ARK → Voyage → OpenAI."""
+    s = get_settings()
+    if s.ark_api_key:
+        try:
+            resp = await get_ark().embeddings.create(
+                model=s.ark_embed_model, input=q, dimensions=1024
+            )
+            return list(resp.data[0].embedding)
+        except Exception:
+            pass
+    if s.voyage_api_key:
+        try:
+            resp = await get_voyage().embed([q], model="voyage-3", input_type="query")
+            return list(resp.embeddings[0])
+        except Exception:
+            pass
+    if s.openai_api_key:
+        try:
+            resp = await get_openai().embeddings.create(
+                model="text-embedding-3-small", input=q, dimensions=1024
+            )
+            return list(resp.data[0].embedding)
+        except Exception:
+            pass
+    return None
 
 
 @router.get("", response_model=SearchResponse)

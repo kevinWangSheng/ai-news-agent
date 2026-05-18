@@ -27,7 +27,7 @@ export function TopBar() {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (q.trim()) router.push(`/library?q=${encodeURIComponent(q.trim())}`);
+          if (q.trim()) router.push(`/search?q=${encodeURIComponent(q.trim())}`);
         }}
         className="flex items-center gap-2 flex-1 max-w-xl"
       >

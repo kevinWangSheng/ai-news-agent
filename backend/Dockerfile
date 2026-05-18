@@ -12,6 +12,12 @@ RUN uv pip install --system --no-cache .
 FROM base AS runtime
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    libnss3 libxkbcommon0 libdrm2 libgbm1 libasound2 libatk-bridge2.0-0 libatspi2.0-0 \
+    libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgtk-3-0 libpango-1.0-0 libcairo2 fonts-noto-cjk \
+  && rm -rf /var/lib/apt/lists/*
+RUN python -m playwright install chromium
 COPY app /app/app
 COPY alembic /app/alembic
 COPY alembic.ini /app/alembic.ini

@@ -21,6 +21,8 @@ export type Item = {
   final_score: number | null;
   tags: string[] | null;
   user_note: string | null;
+  viewed_at?: string | null;
+  score_breakdown?: Record<string, unknown> | null;
 };
 
 export type ItemDetail = Item & {
@@ -52,12 +54,39 @@ export type Entity = {
 };
 
 export type Page<T> = { items: T[]; next_cursor: string | null };
+export type ItemLanes = { top_signals: Item[]; official_updates: Item[]; repo_radar: Item[] };
+export type ItemFilters = {
+  status?: string;
+  source_name?: string;
+  source_type?: string;
+  topic?: string;
+  entity?: string;
+  since?: "24h" | "7d" | "all" | string;
+  tier?: string;
+  min_score?: number | string;
+  sort?: "score" | "time" | string;
+  limit?: number;
+  cursor?: string;
+};
 
-export function useItems(params: { status?: string; source_name?: string; topic?: string; limit?: number; cursor?: string }) {
-  const qs = new URLSearchParams(
-    Object.entries(params).filter(([_, v]) => v !== undefined && v !== "") as [string, string][]
+function qs(params: Record<string, unknown>) {
+  return new URLSearchParams(
+    Object.entries(params)
+      .filter(([, v]) => v !== undefined && v !== null && v !== "")
+      .map(([k, v]) => [k, String(v)])
   ).toString();
-  return useSWR<Page<Item>>(`/api/items?${qs}`);
+}
+
+export function useItems(params: ItemFilters | null) {
+  if (params === null) return useSWR<Page<Item>>(null);
+  const query = qs(params);
+  return useSWR<Page<Item>>(`/api/items?${query}`);
+}
+
+export function useItemLanes(params: Pick<ItemFilters, "status" | "since" | "limit"> | null = {}) {
+  if (params === null) return useSWR<ItemLanes>(null);
+  const query = qs(params);
+  return useSWR<ItemLanes>(`/api/items/lanes?${query}`);
 }
 
 export function useItem(id: number | null) {
@@ -86,9 +115,35 @@ export function useSources() {
   return useSWR("/api/sources");
 }
 
+export function useHealthScoring() {
+  return useSWR<{ total_interactions: number; cold_start_passed: boolean; cold_start_min: number }>("/health/scoring");
+}
+
+export function useAuthors() {
+  return useSWR<{ value: string; count: number }[]>("/api/authors");
+}
+
+export function useAuthorItems(slug: string | null) {
+  return useSWR<Item[]>(slug ? `/api/authors/${slug}/items` : null);
+}
+
 export async function patchItem(id: number, body: Partial<Pick<Item, "status" | "user_note" | "tags">>) {
+  mutate<ItemDetail | undefined>(
+    `/api/items/${id}`,
+    (current) => (current ? { ...current, ...body } : current),
+    { revalidate: false }
+  );
   const res = await apiFetch<Item>(`/api/items/${id}`, { method: "PATCH", body: JSON.stringify(body) });
   mutate(`/api/items/${id}`);
+  mutate((key) => typeof key === "string" && key.startsWith("/api/items?"));
+  return res;
+}
+
+export async function bulkPatchItems(ids: number[], action: "kept" | "archived" | "trashed") {
+  const res = await apiFetch<{ updated: number }>("/api/items/bulk", {
+    method: "POST",
+    body: JSON.stringify({ ids, action }),
+  });
   mutate((key) => typeof key === "string" && key.startsWith("/api/items?"));
   return res;
 }

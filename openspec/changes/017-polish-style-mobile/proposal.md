@@ -1,5 +1,9 @@
 **Status: planned-sketch** — 等 015+016 落地 + 真实使用形态稳定后再细化
 
+## 2026-05-17 当前状态
+
+未开始实现。今晚只把 015 的 reader/inbox dogfood 能力推进到代码可构建状态;017 仍保持后续范围,等 015 真实使用几天后再拆 tasks/design,避免凭空设计。
+
 # 017 · Polish, Style & Mobile — 视觉收尾 + 长尾体验
 
 ## 范围(全部待 dogfood 后细化)

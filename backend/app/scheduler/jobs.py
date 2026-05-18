@@ -1,7 +1,6 @@
 """Scheduler jobs — all wrapped in @track_run."""
 from __future__ import annotations
 
-import asyncio
 import logging
 from datetime import datetime, timezone
 from functools import wraps
@@ -54,6 +53,11 @@ async def _run_kind(kind: str) -> dict:
 @track_run("ingestion_rss")
 async def ingestion_rss():
     return await _run_kind("rss")
+
+
+@track_run("ingestion_web")
+async def ingestion_web():
+    return await _run_kind("web")
 
 
 @track_run("ingestion_github")

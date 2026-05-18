@@ -4,102 +4,88 @@
 
 ## 阶段 A:开发期工具
 
-- [x] A1. ~~装 Playwright MCP~~ —— 用户机器已有 `playwright-mcp --extension --browser chrome` 在跑(2026-05-17 确认),只需在 Claude Code 项目 / session 里接上即可,无需安装
-- [ ] A2. **verify**:本次会话(或下次)看到 MCP 工具里有 playwright_* 可调,能开浏览器看 https://www.anthropic.com/news
+- [x] A1. 用户机器已有 `playwright-mcp --extension --browser chrome` 在跑(2026-05-17 确认),无需安装。
+- [x] A2. **verify**:切到安装 Playwright Extension 的 Chrome `shenghui` profile 后,`mcp__playwright__.browser_navigate` 已能打开 https://www.anthropic.com/news 。
 
-## 阶段 B:实现 `WebSource`(纯 HTTP 路径,先解锁 17 个站)
+## 阶段 B:实现 `WebSource` HTTP 快路径
 
-- [ ] B1. 新建 `backend/app/ingestion/sources/web.py`,定义 `WebSource(Source)` 类
-  - 输入:`name / listing_url / link_pattern(可选)/ max_items`
-  - 方法:`async fetch() -> AsyncIterator[RawItem]`
-  - 流程:listing HTTP → 抽链接 → 每篇文章 HTTP → trafilatura 提正文
-- [ ] B2. 在 `web.py` 加 `build_web_sources(cfg) -> list[WebSource]`,从 `tech_sources.*` 各 bucket 过滤 `type=="web"` 的源
-- [ ] B3. 修 `backend/app/ingestion/run.py:build_sources`,把 web 类型从 `rss.py` 的处理里剥离,改走 `web.py`
-- [ ] B4. 修 `rss.py:build_rss_sources`,只处理 `type=="rss"` 的源(目前是全吃)
-- [ ] B5. `config.yaml` 给 Anthropic / Claude / Cursor 三个站加 `link_pattern` 字段(精确控制 URL 模式)
-- [ ] B6. 写 `backend/tests/test_web_source.py`:
-  - 单测 listing HTML → 链接列表
-  - 单测 link_pattern 过滤
-  - 单测 article HTML → markdown 转换
-- [ ] B7. **verify**:`uv run pytest tests/test_web_source.py` 通过
-- [ ] B8. **verify**:容器内手动跑 `python -m app.ingestion.run web` 单源测试,DB items 来自这 3 站点的 ≥ 30 条
+- [x] B1. 新建 `backend/app/ingestion/sources/web.py`,实现 listing HTTP → 链接抽取 → article HTTP → trafilatura markdown → RawItem。
+- [x] B2. `build_web_sources(cfg)` 从 `tech_sources.*` 过滤 `type=="web"` 且 `disabled != true` 的源。
+- [x] B3. `backend/app/ingestion/run.py:build_sources` 新增 `web` kind。
+- [x] B4. `rss.py:build_rss_sources` 只处理 `type=="rss"`,避免 HTML 页面被 feedparser 静默吃掉。
+- [x] B5. `config.yaml` 为 Anthropic / Claude / Cursor 等 web 站加 per-source `link_pattern`。
+- [x] B6. `backend/tests/ingestion/test_web_source.py` 覆盖 listing link 过滤、article markdown、fallback listing。
+- [x] B7. **verify**: `cd backend && uv run pytest -q tests/ingestion/test_web_source.py tests/ingestion/test_rss.py tests/processing/test_extract.py tests/processing/test_enricher.py` → 15 passed(2026-05-17)。
+- [x] B8. **verify**:Docker DB 实跑 web ingestion 后,Anthropic 14 + Claude 20 + Cursor 10 均 ready。
+
+## 阶段 C:Chromium + Playwright 浏览器路径
+
+- [x] C1. `backend/Dockerfile` runtime stage 安装 Chromium 所需系统依赖 + `python -m playwright install chromium`。
+- [x] C2. `WebSource` 支持 `js_render: true`:listing/article 优先 Playwright,HTTP 失败或正文过短时 fallback Playwright。
+- [x] C3. `WebSource` 支持 `fallback_urls`:Qwen 主入口 `https://qwen.ai/blog` 无 `<a href>`,自动 fallback 到 `https://qwenlm.github.io/blog/`。
+- [x] C4. `config.yaml` 启用 Meta / xAI / Mistral / Qwen / Cohere / AutoGen / The Batch 的浏览器抓取配置;AMI Labs 仍 disabled。
+- [x] C5. **verify**:容器内 Playwright smoke 成功:
   ```bash
-  docker compose exec backend python -m app.ingestion.run web
-  docker compose exec postgres psql -U hub -d hub -c \
-    "select source_name, count(*) from items where source_type='web' group by 1;"
+  docker compose exec -T backend python - <<'PY'
+  from playwright.sync_api import sync_playwright
+  with sync_playwright() as p:
+      b=p.chromium.launch(headless=True,args=['--no-sandbox'])
+      page=b.new_page(); page.goto('https://cohere.com/blog', wait_until='domcontentloaded')
+      print(page.title(), len(page.content())); b.close()
+  PY
   ```
-
-## 阶段 C:装 chromium + playwright 路径(解锁剩 7 个站 + 救 OpenAI)
-
-> **本 change 不做**(2026-05-17 决议),整段推迟到 015 或之后。理由:17 个简单站已经覆盖最关键的 Anthropic / Claude / Cursor 等;OpenAI / xAI 等 7 个 JS 站等真用一周看是否缺得慌再说;镜像 +300MB 是一次性代价,可以晚点付。
-
-- [ ] ~~C1~~. 推迟
-- [ ] C1. `backend/Dockerfile` runtime stage 加:
-  ```
-  RUN apt-get update && apt-get install -y --no-install-recommends \
-      libnss3 libxkbcommon0 libdrm2 libgbm1 libasound2 libatk-bridge2.0-0 libatspi2.0-0 \
-      libxcomposite1 libxdamage1 libxfixes3 libxrandr2 fonts-noto-cjk \
-   && rm -rf /var/lib/apt/lists/*
-  RUN python -m playwright install chromium
-  ```
-- [ ] C2. `WebSource` 加 `_fetch_listing_with_js(url)` 和 `_fetch_article_with_js(url)` —— 当 HTTP 路径失败或返回过短时自动 fallback
-- [ ] C3. `backend/app/processing/extract.py:_fetch_via_playwright` 现已 graceful skip;装 chromium 后应该真生效。**verify** 它现在能拉到 OpenAI 一篇文章正文
-- [ ] C4. 给 xAI / Mistral / Qwen / AutoGen / The Batch 在 `config.yaml` 加 `js_render: true` 标记,WebSource 见此优先 playwright
-- [ ] C5. **verify**:`docker compose build backend` + 重启 + 跑 `python -m app.ingestion.run web` 单点测一篇 OpenAI / 一篇 xAI 文章
+  结果:`Cohere Blog | AI News, Insights, and Innovation`,HTML length 332968。
+- [x] C6. **verify**:浏览器源实跑入库成功:Meta 12、xAI 10、Mistral 9、Qwen 5、Cohere 10、AutoGen 10、The Batch 7,全部 ready。
 
 ## 阶段 D:配置 / 死源处理
 
-- [ ] D1. Meta AI Blog `url` 改为可用的(候选:`https://ai.meta.com/research/publications/` 或 `https://about.fb.com/news/category/ai/`,先 curl 验)
-- [ ] D2. AMI Labs (LeCun) 站点连不上,`config.yaml` 标 `disabled: true`(或直接注释掉)
-- [ ] D3. 处理 GitHub README 类无法 extract 的情况(29 条 failed 里部分):若 `source_type=github` 且 extract 失败 ≥ 2 次,**直接用 RSS 给的 description 当 content_md**,不强求抓 README
+- [x] D1. Meta AI Blog:HTTP 曾返回 400,Playwright 路径可抓,保留并启用 `js_render`。
+- [x] D2. AMI Labs (LeCun) 站点不可用,`config.yaml` 标 `disabled: true`。
+- [x] D3. GitHub README 类无法 extract 时,用 GitHub metadata/title 组装 `content_md` 兜底。
+- [x] D4. enricher 增加 Claude 坏 JSON 修复 fallback,避免偶发裸双引号/Markdown fence 卡住 processing。
+- [x] D5. 文章正文提取增强:OpenAI 走 Playwright,Medium 走 RSS full summary,Buttondown/AINews 走 `article/.email-body` DOM fallback;AINews 两条短正文已由 295/328 字符重抓为 191k/174k 字符。
 
 ## 阶段 E:运行 + 收口
 
-- [ ] E1. 复活当前 29 条 `processing_status=failed` 的:
-  ```sql
-  UPDATE items SET processing_status='pending', processing_attempts=0, last_error=NULL
-  WHERE processing_status='failed';
-  ```
-- [ ] E2. 跑一次完整 ingestion + processing + scoring:
-  ```bash
-  docker compose exec backend python -m app.ingestion.run all
-  for i in 1 2 3 4 5 6 7 8 9 10; do
-    docker compose exec backend python -m app.processing.run --once
-  done
-  docker compose exec backend python -m app.scoring.recompute --all
-  ```
-- [ ] E3. **verify** 库存 ≥ 600 条
-- [ ] E4. **verify** inbox 默认 50 条里,至少 5 条来自 `Anthropic News` 或 `Claude Blog`:
-  ```sql
-  SELECT source_name, count(*) FROM items
-  WHERE status='inbox' AND source_name IN ('Anthropic News', 'Claude Blog')
-  GROUP BY 1;
-  ```
-- [ ] E5. **verify** `processing_status='failed'` 比例 < 3%
-- [ ] E6. 跑一遍 `docs/content-truth.md` §2 的质量审计 SQL,**完成度 ≥ 98%**
-- [ ] E7. 抽样人工 review 10 条 Anthropic / Claude 的 title_cn / summary_zh,无明显翻译错误
+- [x] E1. 跑 web ingestion + processing + scoring。
+- [x] E2. **verify** 库存 ≥ 600 —— 2026-05-17/18 实测 items=716。
+- [x] E3. **verify** web 覆盖:23 个 web source ready,web_total=230,ready=230,failed=0。
+- [x] E4. **verify** web 字段完整率 100%:230 ready web 的 `title_cn / summary_zh / final_score / content_md / embedding` 均 230/230。
+- [x] E5. **verify** 浏览器抓取链路有效:本轮新增 Meta/xAI/Mistral/Cohere/AutoGen/The Batch/Qwen 共 63 条。
+- [x] E6. **moved out / resolved by 015-J**:014 完成时默认 top50 被 GitHub 淹没,确认是 ranking/source_boost 问题而不是抓取问题。2026-05-18 在 015-J 中通过 `source_prior` + diversity rerank + `/api/items/lanes` 收口;`sort=score&limit=50` 实测 web 19 / github 18 / rss 13,并新增 Official Updates 专用 lane 承载官方源。
+- [x] E7. **verify** 整体 failed 比例 <3% —— 修复 RSS/manual metadata fallback、Playwright no-sandbox、历史 embedding 锁死队列后,2026-05-18 实测 failed=0/716; 所有 source_type 的 content/title/summary/embedding/score 均 100%。
 
 ## 阶段 F:文档 / 收口
 
-- [ ] F1. `docs/content-truth.md` 顶部加 "2026-XX-XX:已通过 change 014 解决" 横幅 + 更新对账表
-- [ ] F2. `docs/handoff.md` §3 / §4 的 verify 命令同步更新(数据量 / 预期源数)
-- [ ] F3. CHANGELOG.md 加 v2.2.0 段落
-- [ ] F4. `openspec/changes/014-web-source-coverage/proposal.md` 顶部加 `Status: completed (YYYY-MM-DD)`
-- [ ] F5. commit + push
+- [x] F1. `docs/content-truth.md` 顶部更新 2026-05-18 浏览器抓取验收结果。
+- [x] F2. `docs/handoff.md` verify 命令同步更新(web + browser source SQL)。
+- [x] F3. `CHANGELOG.md` 更新 v2.2.0 段落。
+- [x] F4. `openspec/changes/014-web-source-coverage/proposal.md` 顶部改为 completed-for-source-coverage,并明确 ranking/old-failed 移出范围。
+- [x] F5. commit + push。
 
-## 阶段 G:未尽 / 推迟到 015
+## 当前最终验收快照(2026-05-18 00:17 UTC)
 
-- [ ] G1. enrich prompt 优化(title_cn 中文化激进度)—— 等 600+ 条样本到位后,基于数据看是否真要改,推迟 015
-- [ ] G2. 5 个 JS 渲染站如果 playwright 仍抓不到(比如 Cloudflare 拦),允许标记 `disabled` 暂时跳过,不阻塞本 change
+```sql
+select count(*) total from items;                         -- 716
+select source_type, processing_status, count(*) ...;
+-- github ready 285
+-- rss    ready 196
+-- manual ready 5
+-- web    ready 230
 
-## 估时(收窄到 A 选项后)
+select count(*) web_total,
+       count(*) filter (where processing_status='ready') ready,
+       count(*) filter (where processing_status='failed') failed,
+       count(title_cn) filter (where processing_status='ready') title_cn,
+       count(summary_zh) filter (where processing_status='ready') summary_zh,
+       count(final_score) filter (where processing_status='ready') final_score,
+       count(content_md) filter (where processing_status='ready') content_md,
+       count(embedding) filter (where processing_status='ready') embeddings
+from items where source_type='web';
+-- total=716, ready=716, failed=0; all source_type required fields complete, web_total=230
+```
 
-| 阶段 | 内容 | 估时 |
-|---|---|---|
-| A | Playwright MCP(用户机器已有)| 0(已就绪)|
-| B | WebSource 纯 HTTP 路径 | 3-4 小时 |
-| ~~C~~ | ~~chromium + playwright~~ | 推迟到 015 |
-| D | 死源 / 配置清理 | 30 分钟 |
-| E | 运行 + verify | 1 小时 |
-| F | 文档 / 收口 | 30 分钟 |
-| **合计** | | **5-6 小时**(半个工作日)|
+## 后续建议
+
+- Ranking/source_boost 已由 015-J 初步收口;后续只做 dogfood 后的权重调参,不再阻塞 014。
+- BrowserSource 性能优化:当前简单实现是每个 listing/article 启一次 Chromium,可后续改为每 source 复用 browser/page。

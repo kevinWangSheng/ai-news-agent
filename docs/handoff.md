@@ -3,6 +3,8 @@
 > 2026-05-17 §1-7 已由 Claude Code 真机跑通(colima + docker compose),过程中修了 5 个仅 docker 暴露的 bug,见 [CHANGELOG.md v2.0.1](../CHANGELOG.md)。
 > `backend/legacy/` 已物理删除。本文档保留作为重建环境的 runbook。
 
+> Playwright MCP 提示 `Extension connection timeout` 时，先看 [docs/troubleshooting.md](troubleshooting.md)：本机常见原因是 Chrome profile 没切到安装 Playwright Extension 的 `shenghui`。
+
 openspec 14 个 change 都已经标 completed,本清单按顺序走完即可完整复现一次端到端 verify。
 
 ---
@@ -64,11 +66,14 @@ docker compose exec backend python -m pytest tests/test_schema.py -v
 
 ```bash
 docker compose exec backend python -m app.ingestion.run rss
+docker compose exec backend python -m app.ingestion.run web   # 014: HTTP + Playwright web 源,含 Meta/xAI/Mistral/Qwen/Cohere 等浏览器源
 docker compose exec backend python -m app.ingestion.run rss   # 第二次应 dedupe
-docker compose exec backend python -m app.ingestion.run all   # 6 source 失败隔离
+docker compose exec backend python -m app.ingestion.run all   # 6 source kind 失败隔离
 
 docker compose exec postgres psql -U hub -d hub -c "select count(*) from items;"
-docker compose exec postgres psql -U hub -d hub -c "select source_kind, count(*) from items group by 1;"
+docker compose exec postgres psql -U hub -d hub -c "select source_type, count(*) from items group by 1 order by 2 desc;"
+docker compose exec postgres psql -U hub -d hub -c "select source_name, count(*) from items where source_type='web' group by 1 order by 2 desc;"
+docker compose exec postgres psql -U hub -d hub -c "select count(*) web_total, count(*) filter (where processing_status='ready') ready, count(*) filter (where processing_status='failed') failed from items where source_type='web';"
 ```
 
 ---

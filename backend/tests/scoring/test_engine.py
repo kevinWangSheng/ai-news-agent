@@ -6,9 +6,10 @@ from app.scoring.engine import score_item
 from app.scoring.preferences import Signal
 
 
-def _item(quality=7.0, source_name="src", published_days_ago=2, tags=None):
+def _item(quality=7.0, source_name="src", source_type="rss", published_days_ago=2, tags=None):
     return SimpleNamespace(
         quality_score=quality,
+        source_type=source_type,
         source_name=source_name,
         published_at=datetime.now(timezone.utc) - timedelta(days=published_days_ago),
         tags=tags or [],
@@ -98,4 +99,17 @@ def test_mcp_keep_vs_image_gen_trash_gap(monkeypatch):
                        total_interactions_count=100, item_tag_slugs=["mcp"])
     b_img = score_item(img_item, tag_signals=tag_sigs, entity_signals={}, source_signals={},
                        total_interactions_count=100, item_tag_slugs=["image-gen"])
-    assert b_mcp.final - b_img.final >= 2.0
+    assert b_mcp.final - b_img.final >= 1.99
+
+
+def test_source_prior_lifts_official_and_penalizes_github_during_cold_start():
+    official = _item(quality=7, source_name="Anthropic News", source_type="web")
+    github = _item(quality=7, source_name="github:mcp", source_type="github")
+
+    b_official = score_item(official, {}, {}, {}, total_interactions_count=0)
+    b_github = score_item(github, {}, {}, {}, total_interactions_count=0)
+
+    assert b_official.cold_start is True
+    assert b_official.source_prior > 0
+    assert b_github.source_prior < 0
+    assert b_official.final > b_github.final

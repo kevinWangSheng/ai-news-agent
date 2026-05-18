@@ -1,4 +1,5 @@
 """Shared pytest fixtures — testcontainers-managed postgres + alembic upgrade head."""
+import asyncio
 from collections.abc import AsyncIterator
 from pathlib import Path
 
@@ -20,7 +21,7 @@ def pg_container() -> PostgresContainer:
     container.stop()
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture
 async def pg_engine(pg_container: PostgresContainer) -> AsyncIterator[AsyncEngine]:
     sync_url = pg_container.get_connection_url()
     async_url = sync_url.replace("postgresql+psycopg2", "postgresql+asyncpg").replace(
@@ -28,9 +29,10 @@ async def pg_engine(pg_container: PostgresContainer) -> AsyncIterator[AsyncEngin
     )
 
     cfg = Config(str(BACKEND_ROOT / "alembic.ini"))
+    cfg.attributes["database_url"] = async_url
     cfg.set_main_option("sqlalchemy.url", async_url)
     cfg.set_main_option("script_location", str(BACKEND_ROOT / "alembic"))
-    command.upgrade(cfg, "head")
+    await asyncio.to_thread(command.upgrade, cfg, "head")
 
     engine = create_async_engine(async_url, pool_pre_ping=True)
     yield engine
